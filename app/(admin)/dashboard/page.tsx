@@ -99,6 +99,27 @@ export default function DashboardPage() {
       }
     }
     fetchStats();
+
+    // Auto-refresh setiap 15 detik
+    const interval = setInterval(async () => {
+      try {
+        const [bookings, stocks] = await Promise.all([getBookings(), getStocks()]);
+        const pending = bookings.filter((b) => b.status === 'PENDING').length;
+        const selesai = bookings.filter((b) => b.status === 'COMPLETED').length;
+        setStats({
+          totalTransaksi: bookings.length,
+          totalStock: stocks.reduce((sum: number, s: Stock) => sum + s.quantity, 0),
+          pending, selesai,
+        });
+        setRecentBookings(
+          [...bookings]
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .slice(0, 5)
+        );
+      } catch { /* silent */ }
+    }, 15000);
+
+    return () => clearInterval(interval);
   }, []);
 
   return (

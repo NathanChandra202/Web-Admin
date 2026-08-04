@@ -133,6 +133,20 @@ export default function TransactionDetailPage() {
 
   useEffect(() => { fetchBooking(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-refresh setiap 10 detik (silent, tanpa reset loading)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (confirmAdvance || advanceLoading || amountLoading || partLoading) return;
+      try {
+        const data = await getBooking(id);
+        setBooking(data);
+        if (data.totalAmount != null) setAmountInput(data.totalAmount.toString());
+        try { setParts(await getBookingParts(id)); } catch { /* ignore */ }
+      } catch { /* silent */ }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [id, confirmAdvance, advanceLoading, amountLoading, partLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function handleAdvanceStatus() {
     if (!booking || !nextStatus) return;
     setAdvanceLoading(true); setAdvanceError('');

@@ -49,6 +49,18 @@ export default function TransactionsPage() {
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Gagal memuat data'))
       .finally(() => setLoading(false));
+
+    // Auto-refresh setiap 15 detik
+    const interval = setInterval(() => {
+      getBookings()
+        .then((data) => {
+          data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setBookings(data);
+        })
+        .catch(() => {/* silent refresh error */});
+    }, 15000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const filtered = bookings.filter((b) => {
