@@ -67,6 +67,23 @@ export interface Booking {
   parts?: BookingPart[];
 }
 
+export interface Review {
+  id: string;
+  bookingId: string;
+  userId: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  user: {
+    name: string;
+    avatarUrl: string | null;
+  };
+  booking: {
+    mouseName: string;
+    issue: string;
+  };
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function request<T>(
@@ -204,6 +221,18 @@ export async function removeBookingPart(
   partId: string
 ): Promise<void> {
   return request(`/bookings/${bookingId}/parts/${partId}`, { method: 'DELETE' });
+}
+
+// ─── Reviews ──────────────────────────────────────────────────────────────────
+
+export async function getReviews(): Promise<Review[]> {
+  const data = await request<Review[] | { data: Review[] }>('/reviews');
+  if (Array.isArray(data)) return data;
+  return (data as { data: Review[] }).data ?? [];
+}
+
+export async function deleteReview(id: string): Promise<void> {
+  return request(`/reviews/${id}`, { method: 'DELETE' });
 }
 
 // ─── Utils ────────────────────────────────────────────────────────────────────

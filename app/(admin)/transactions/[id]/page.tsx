@@ -92,6 +92,7 @@ export default function TransactionDetailPage() {
   const [advanceLoading, setAdvanceLoading] = useState(false);
   const [advanceError, setAdvanceError] = useState('');
   const [amountInput, setAmountInput] = useState('');
+  const [extraFee, setExtraFee] = useState('0');
   const [amountLoading, setAmountLoading] = useState(false);
   const [amountError, setAmountError] = useState('');
   const [amountSuccess, setAmountSuccess] = useState('');
@@ -121,6 +122,11 @@ export default function TransactionDetailPage() {
       try {
         const partsData = await getBookingParts(id);
         setParts(partsData);
+        // Pre-populate extraFee = max(0, totalAmount - partsTotal)
+        const partsTotal = partsData.reduce((s: number, p: BookingPart) => s + p.priceEach * p.quantity, 0);
+        if (data.totalAmount != null) {
+          setExtraFee(String(Math.max(0, data.totalAmount - partsTotal)));
+        }
       } catch {
         setParts([]);
       }
@@ -165,7 +171,9 @@ export default function TransactionDetailPage() {
     if (!booking) return;
     setAmountLoading(true); setAmountError(''); setAmountSuccess('');
     try {
-      const updated = await setBookingAmount(booking.id, parseFloat(amountInput));
+      const partsTotal = parts.reduce((s, p) => s + p.priceEach * p.quantity, 0);
+      const totalAmount = partsTotal + parseFloat(extraFee || '0');
+      const updated = await setBookingAmount(booking.id, totalAmount);
       setBooking(updated); setAmountSuccess('Harga berhasil disimpan!');
       setTimeout(() => setAmountSuccess(''), 3000);
     } catch (err: unknown) {
@@ -419,23 +427,31 @@ export default function TransactionDetailPage() {
                 <div className="px-6 py-4 border-b border-gray-700/50">
                   <h2 className="text-white font-semibold">Set Harga Perbaikan</h2>
                   <p className="text-gray-500 text-xs mt-0.5">
-                    {parts.length > 0 ? 'Dikalkulasi otomatis dari sparepart. Bisa diubah manual.' : 'Set harga manual atau tambah sparepart dulu.'}
+                    Tentukan biaya jasa perbaikan. Total biaya akan dikalkulasi otomatis dengan sparepart.
                   </p>
                 </div>
                 <div className="p-6">
                   {amountSuccess && <div className="mb-4 p-3 bg-green-900/40 border border-green-700 rounded-lg text-green-300 text-sm">{amountSuccess}</div>}
                   {amountError && <div className="mb-4 p-3 bg-red-900/40 border border-red-700 rounded-lg text-red-300 text-sm">{amountError}</div>}
-                  <form onSubmit={handleSetAmount} className="space-y-3">
+                  <form onSubmit={handleSetAmount} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-1.5">Total Biaya (Rp)</label>
-                      <input type="number" required min="0" value={amountInput} onChange={(e) => setAmountInput(e.target.value)} placeholder="150000"
+                      <label className="block text-sm font-medium text-gray-400 mb-1.5">Total Sparepart</label>
+                      <input type="text" disabled value={formatRupiah(parts.reduce((s, p) => s + p.priceEach * p.quantity, 0))}
+                        className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-gray-300 cursor-not-allowed" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1.5">Biaya Jasa (Rp)</label>
+                      <input type="number" required min="0" value={extraFee} onChange={(e) => setExtraFee(e.target.value)} placeholder="0"
                         className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent transition" />
-                      {amountInput && !isNaN(Number(amountInput)) && (
-                        <p className="text-gray-500 text-xs mt-1">{formatRupiah(Number(amountInput))}</p>
-                      )}
+                    </div>
+                    <div className="pt-3 border-t border-gray-700/50 flex justify-between items-center">
+                      <span className="text-gray-300 text-sm font-medium">Total Akhir:</span>
+                      <span className="text-white font-bold text-lg">
+                        {formatRupiah(parts.reduce((s, p) => s + p.priceEach * p.quantity, 0) + parseFloat(extraFee || '0'))}
+                      </span>
                     </div>
                     <button type="submit" disabled={amountLoading}
-                      className="w-full py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white rounded-lg font-medium transition flex items-center justify-center gap-2 text-sm">
+                      className="w-full mt-2 py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white rounded-lg font-medium transition flex items-center justify-center gap-2 text-sm">
                       {amountLoading && <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" /></svg>}
                       {amountLoading ? 'Menyimpan...' : 'Simpan Harga'}
                     </button>
