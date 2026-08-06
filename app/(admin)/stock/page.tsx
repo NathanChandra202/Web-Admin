@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import {
-  getStocks, createStock, updateStock, deleteStock,
+  getStocks, createStock, updateStock, deleteStock, getStockCategories,
   formatRupiah, type Stock,
 } from '@/lib/api';
 import FadeContent from '@/components/FadeContent';
@@ -11,11 +11,20 @@ type StockForm = { name: string; category: string; quantity: string; price: stri
 const EMPTY_FORM: StockForm = { name: '', category: '', quantity: '', price: '' };
 
 function Modal({
-  title, onClose, onSubmit, form, onChange, loading, error,
+  title, onClose, onSubmit, form, onChange, loading, error, categories,
 }: {
   title: string; onClose: () => void; onSubmit: (e: React.FormEvent) => void;
-  form: StockForm; onChange: (f: keyof StockForm, v: string) => void; loading: boolean; error: string;
+  form: StockForm; onChange: (f: keyof StockForm, v: string) => void; loading: boolean; error: string; categories: string[];
 }) {
+  const [showCustom, setShowCustom] = useState(false);
+  
+  useEffect(() => {
+    // Check if current category is custom
+    if (form.category && !categories.includes(form.category)) {
+      setShowCustom(true);
+    }
+  }, [form.category, categories]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
@@ -36,9 +45,50 @@ function Modal({
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1.5">Kategori</label>
-            <input type="text" required value={form.category} onChange={(e) => onChange('category', e.target.value)}
-              placeholder="Contoh: Aksesoris, Komponen"
-              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent transition" />
+            {!showCustom ? (
+              <div className="space-y-2">
+                <select
+                  required
+                  value={form.category}
+                  onChange={(e) => {
+                    if (e.target.value === '__custom__') {
+                      setShowCustom(true);
+                      onChange('category', '');
+                    } else {
+                      onChange('category', e.target.value);
+                    }
+                  }}
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent transition"
+                >
+                  <option value="">Pilih kategori...</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                  <option value="__custom__">+ Kategori Baru</option>
+                </select>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  required
+                  value={form.category}
+                  onChange={(e) => onChange('category', e.target.value)}
+                  placeholder="Masukkan kategori baru"
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent transition"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCustom(false);
+                    onChange('category', '');
+                  }}
+                  className="text-sm text-gray-400 hover:text-white transition"
+                >
+                  ← Pilih dari kategori yang ada
+                </button>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -106,11 +156,18 @@ export default function StockPage() {
   const [deleteTarget, setDeleteTarget] = useState<Stock | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [categories, setCategories] = useState<string[]>([]);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   async function fetchStocks() {
     setLoading(true);
     try {
-      setStocks(await getStocks());
+      const [stocksData, categoriesData] = await Promise.all([
+        getStocks(),
+        getStockCategories()
+      ]);
+      setStocks(stocksData);
+      setCategories(categoriesData);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Gagal memuat data stok');
     } finally {
@@ -119,6 +176,13 @@ export default function StockPage() {
   }
 
   useEffect(() => { fetchStocks(); }, []);
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   function openAdd() { setEditTarget(null); setForm(EMPTY_FORM); setFormError(''); setShowModal(true); }
   function openEdit(s: Stock) { setEditTarget(s); setForm({ name: s.name, category: s.category, quantity: s.quantity.toString(), price: s.price.toString() }); setFormError(''); setShowModal(true); }
@@ -130,7 +194,9 @@ export default function StockPage() {
     try {
       const body = { name: form.name.trim(), category: form.category.trim(), quantity: parseInt(form.quantity, 10), price: parseInt(form.price, 10) };
       if (editTarget) { await updateStock(editTarget.id, body); } else { await createStock(body); }
-      setShowModal(false); fetchStocks();
+      setShowModal(false); 
+      fetchStocks();
+      setToast({ message: editTarget ? 'Stock berhasil diupdate' : 'Stock berhasil ditambahkan', type: 'success' });
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'Gagal menyimpan data');
     } finally {
@@ -141,8 +207,15 @@ export default function StockPage() {
   async function handleDelete() {
     if (!deleteTarget) return;
     setDeleteLoading(true);
-    try { await deleteStock(deleteTarget.id); setDeleteTarget(null); fetchStocks(); }
-    catch (err) { console.error(err); }
+    try { 
+      await deleteStock(deleteTarget.id); 
+      setDeleteTarget(null); 
+      fetchStocks();
+      setToast({ message: 'Stock berhasil dihapus', type: 'success' });
+    }
+    catch (err) { 
+      setToast({ message: err instanceof Error ? err.message : 'Gagal menghapus stock', type: 'error' });
+    }
     finally { setDeleteLoading(false); }
   }
 
@@ -152,8 +225,27 @@ export default function StockPage() {
 
   return (
     <>
-      {showModal && <Modal title={editTarget ? 'Edit Stock' : 'Tambah Stock Baru'} onClose={() => setShowModal(false)} onSubmit={handleFormSubmit} form={form} onChange={onFormChange} loading={formLoading} error={formError} />}
+      {showModal && <Modal title={editTarget ? 'Edit Stock' : 'Tambah Stock Baru'} onClose={() => setShowModal(false)} onSubmit={handleFormSubmit} form={form} onChange={onFormChange} loading={formLoading} error={formError} categories={categories} />}
       {deleteTarget && <ConfirmDeleteDialog name={deleteTarget.name} onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} loading={deleteLoading} />}
+      
+      {toast && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top">
+          <div className={`px-6 py-3 rounded-lg shadow-lg border ${
+            toast.type === 'success' 
+              ? 'bg-green-900/90 border-green-700 text-green-200' 
+              : 'bg-red-900/90 border-red-700 text-red-200'
+          }`}>
+            <div className="flex items-center gap-2">
+              {toast.type === 'success' ? (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              )}
+              <span className="font-medium">{toast.message}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <FadeContent duration={0.4} blur>
       <div className="p-6 max-w-7xl mx-auto">

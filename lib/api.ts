@@ -168,6 +168,10 @@ export async function deleteStock(id: string): Promise<void> {
   return request(`/stocks/${id}`, { method: 'DELETE' });
 }
 
+export async function getStockCategories(): Promise<string[]> {
+  return request('/stocks/categories');
+}
+
 // ─── Bookings ─────────────────────────────────────────────────────────────────
 
 export async function getBookings(): Promise<Booking[]> {
