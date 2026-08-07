@@ -9,10 +9,12 @@ export const IMAGE_BASE_URL = 'https://dev-api-bengkelmouse.duaenam.id';
 export type BookingStatus =
   | 'PENDING'
   | 'CHECKING'
-  | 'WAITING_PAYMENT'
-  | 'PAYMENT_REVIEW'
+  | 'WAITING_DP'
+  | 'DP_REVIEW'
   | 'IN_PROGRESS'
   | 'TESTING'
+  | 'WAITING_SETTLEMENT'
+  | 'SETTLEMENT_REVIEW'
   | 'COMPLETED'
   | 'CANCELLED';
 
@@ -63,6 +65,7 @@ export interface Booking {
   user: {
     name: string;
     email: string;
+    address?: string;
   };
   parts?: BookingPart[];
 }
@@ -244,10 +247,12 @@ export async function deleteReview(id: string): Promise<void> {
 export const STATUS_LABELS: Record<BookingStatus, string> = {
   PENDING: 'Menunggu Paket',
   CHECKING: 'Pengecekan',
-  WAITING_PAYMENT: 'Menunggu Pembayaran',
-  PAYMENT_REVIEW: 'Review Pembayaran',
-  IN_PROGRESS: 'Sedang Diperbaiki',
+  WAITING_DP: 'DP',
+  DP_REVIEW: 'Review DP',
+  IN_PROGRESS: 'Perbaikan',
   TESTING: 'Testing & QC',
+  WAITING_SETTLEMENT: 'Pelunasan',
+  SETTLEMENT_REVIEW: 'Review Pelunasan',
   COMPLETED: 'Selesai',
   CANCELLED: 'Dibatalkan',
 };
@@ -255,10 +260,12 @@ export const STATUS_LABELS: Record<BookingStatus, string> = {
 export const STATUS_FLOW: BookingStatus[] = [
   'PENDING',
   'CHECKING',
-  'WAITING_PAYMENT',
-  'PAYMENT_REVIEW',
+  'WAITING_DP',
+  'DP_REVIEW',
   'IN_PROGRESS',
   'TESTING',
+  'WAITING_SETTLEMENT',
+  'SETTLEMENT_REVIEW',
   'COMPLETED',
 ];
 
@@ -272,13 +279,16 @@ export function getStatusColor(status: BookingStatus): string {
   switch (status) {
     case 'PENDING':
     case 'CHECKING':
-    case 'WAITING_PAYMENT':
       return 'orange';
-    case 'PAYMENT_REVIEW':
+    case 'WAITING_DP':
+    case 'DP_REVIEW':
       return 'amber';
     case 'IN_PROGRESS':
     case 'TESTING':
       return 'blue';
+    case 'WAITING_SETTLEMENT':
+    case 'SETTLEMENT_REVIEW':
+      return 'purple';
     case 'COMPLETED':
       return 'green';
     case 'CANCELLED':
