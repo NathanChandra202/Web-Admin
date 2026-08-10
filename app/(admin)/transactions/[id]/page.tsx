@@ -198,7 +198,7 @@ export default function TransactionDetailPage() {
   const paymentProofUrl = booking?.paymentProofUrl ? `${IMAGE_BASE_URL}${booking.paymentProofUrl}` : null;
   const settlementProofUrl = booking?.settlementProofUrl ? `${IMAGE_BASE_URL}${booking.settlementProofUrl}` : null;
   const canEditParts = booking ? !['WAITING_SETTLEMENT', 'SETTLEMENT_REVIEW', 'COMPLETED', 'CANCELLED'].includes(booking.status) : false;
-  const canSetAmountDP = booking?.status === 'PENDING' || booking?.status === 'CHECKING';
+  const canSetAmountDP = booking?.status === 'CHECKING';
   const canSetAmountSettlement = booking?.status === 'TESTING';
 
   if (loading) {
