@@ -215,6 +215,7 @@ export default function StockPage() {
     }
     catch (err) { 
       setToast({ message: err instanceof Error ? err.message : 'Gagal menghapus stock', type: 'error' });
+      setDeleteTarget(null);
     }
     finally { setDeleteLoading(false); }
   }

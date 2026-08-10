@@ -99,7 +99,7 @@ export default function TransactionDetailPage() {
   const [amountLoading, setAmountLoading] = useState(false);
   const [amountError, setAmountError] = useState('');
   const [amountSuccess, setAmountSuccess] = useState('');
-  const [showImage, setShowImage] = useState(false);
+  const [showImage, setShowImage] = useState<string | null>(null);
 
   const [parts, setParts] = useState<BookingPart[]>([]);
   const [stocks, setStocks] = useState<Stock[]>([]);
@@ -196,6 +196,7 @@ export default function TransactionDetailPage() {
 
   const nextStatus = booking ? getNextStatus(booking.status) : null;
   const paymentProofUrl = booking?.paymentProofUrl ? `${IMAGE_BASE_URL}${booking.paymentProofUrl}` : null;
+  const settlementProofUrl = booking?.settlementProofUrl ? `${IMAGE_BASE_URL}${booking.settlementProofUrl}` : null;
   const canEditParts = booking ? !['WAITING_SETTLEMENT', 'SETTLEMENT_REVIEW', 'COMPLETED', 'CANCELLED'].includes(booking.status) : false;
   const canSetAmountDP = booking?.status === 'PENDING' || booking?.status === 'CHECKING';
   const canSetAmountSettlement = booking?.status === 'TESTING';
@@ -231,7 +232,7 @@ export default function TransactionDetailPage() {
           onConfirm={handleAdvanceStatus} onCancel={() => setConfirmAdvance(false)} loading={advanceLoading}
         />
       )}
-      {showImage && paymentProofUrl && <ImageModal url={paymentProofUrl} onClose={() => setShowImage(false)} />}
+      {showImage && <ImageModal url={showImage} onClose={() => setShowImage(null)} />}
 
       <FadeContent duration={0.4} blur>
       <div className="p-6 max-w-4xl mx-auto">
@@ -311,7 +312,7 @@ export default function TransactionDetailPage() {
                 ) : (
                   <div className="flex items-center gap-2 p-3 bg-gray-700/40 border border-gray-600 rounded-lg text-gray-400 text-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                    Sparepart terkunci setelah Testing &amp; QC selesai
+                    Sparepart terkunci pada tahap Testing & QC dan setelahnya
                   </div>
                 )}
 
@@ -353,17 +354,37 @@ export default function TransactionDetailPage() {
               </div>
             </div>
 
-            {/* Payment Proof */}
+            {/* DP Payment Proof */}
             {paymentProofUrl && (
               <div className="bg-gray-800 rounded-2xl border border-gray-700/50 overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-700/50">
-                  <h2 className="text-white font-semibold">Bukti Pembayaran</h2>
+                  <h2 className="text-white font-semibold">Bukti DP</h2>
                 </div>
                 <div className="p-6">
-                  <button onClick={() => setShowImage(true)}
+                  <button onClick={() => setShowImage(paymentProofUrl!)}
                     className="group relative w-full overflow-hidden rounded-xl border border-gray-600 hover:border-red-600 transition block">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={paymentProofUrl} alt="Bukti pembayaran" className="w-full h-56 object-cover" />
+                    <img src={paymentProofUrl!} alt="Bukti DP" className="w-full h-56 object-cover" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition flex items-center justify-center">
+                      <span className="opacity-0 group-hover:opacity-100 transition text-white bg-black/60 px-4 py-2 rounded-lg text-sm font-medium">Lihat Ukuran Penuh</span>
+                    </div>
+                  </button>
+                  <p className="text-gray-500 text-xs mt-2 text-center">Klik gambar untuk memperbesar</p>
+                </div>
+              </div>
+            )}
+
+            {/* Settlement Payment Proof */}
+            {settlementProofUrl && (
+              <div className="bg-gray-800 rounded-2xl border border-purple-700/40 overflow-hidden">
+                <div className="px-6 py-4 border-b border-purple-700/40">
+                  <h2 className="text-white font-semibold">Bukti Pelunasan</h2>
+                </div>
+                <div className="p-6">
+                  <button onClick={() => setShowImage(settlementProofUrl!)}
+                    className="group relative w-full overflow-hidden rounded-xl border border-gray-600 hover:border-purple-600 transition block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={settlementProofUrl!} alt="Bukti Pelunasan" className="w-full h-56 object-cover" />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition flex items-center justify-center">
                       <span className="opacity-0 group-hover:opacity-100 transition text-white bg-black/60 px-4 py-2 rounded-lg text-sm font-medium">Lihat Ukuran Penuh</span>
                     </div>
@@ -474,7 +495,7 @@ export default function TransactionDetailPage() {
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     Menunggu pelanggan upload bukti DP
                   </div>
-                ) : booking.status === 'WAITING_SETTLEMENT' && !paymentProofUrl ? (
+                ) : booking.status === 'WAITING_SETTLEMENT' && !settlementProofUrl ? (
                   <div className="flex items-center gap-2 p-3 bg-purple-900/30 border border-purple-800 rounded-lg text-purple-400 text-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     Menunggu pelanggan upload bukti pelunasan

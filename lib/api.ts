@@ -59,6 +59,7 @@ export interface Booking {
   totalAmount: number | null;
   uniqueCode: number | null;
   paymentProofUrl: string | null;
+  settlementProofUrl: string | null;
   paymentStatus: string;
   createdAt: string;
   updatedAt: string;

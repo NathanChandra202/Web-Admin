@@ -6,18 +6,27 @@ import { getBookings, formatDate, formatRupiah, type Booking, type BookingStatus
 import FadeContent from '@/components/FadeContent';
 
 const STATUS_LABELS: Record<BookingStatus, string> = {
-  PENDING: 'Menunggu Paket', CHECKING: 'Pengecekan', WAITING_PAYMENT: 'Menunggu Pembayaran',
-  PAYMENT_REVIEW: 'Review Pembayaran', IN_PROGRESS: 'Sedang Diperbaiki', TESTING: 'Testing & QC',
-  COMPLETED: 'Selesai', CANCELLED: 'Dibatalkan',
+  PENDING: 'Menunggu Paket',
+  CHECKING: 'Pengecekan',
+  WAITING_DP: 'Menunggu DP',
+  DP_REVIEW: 'Review DP',
+  IN_PROGRESS: 'Sedang Diperbaiki',
+  TESTING: 'Testing & QC',
+  WAITING_SETTLEMENT: 'Menunggu Pelunasan',
+  SETTLEMENT_REVIEW: 'Review Pelunasan',
+  COMPLETED: 'Selesai',
+  CANCELLED: 'Dibatalkan',
 };
 
 const STATUS_COLORS: Record<BookingStatus, string> = {
   PENDING: 'bg-orange-900/40 text-orange-400 border-orange-800/60',
   CHECKING: 'bg-orange-900/40 text-orange-400 border-orange-800/60',
-  WAITING_PAYMENT: 'bg-orange-900/40 text-orange-400 border-orange-800/60',
-  PAYMENT_REVIEW: 'bg-amber-900/40 text-amber-400 border-amber-800/60',
+  WAITING_DP: 'bg-amber-900/40 text-amber-400 border-amber-800/60',
+  DP_REVIEW: 'bg-amber-900/40 text-amber-400 border-amber-800/60',
   IN_PROGRESS: 'bg-blue-900/40 text-blue-400 border-blue-800/60',
   TESTING: 'bg-blue-900/40 text-blue-400 border-blue-800/60',
+  WAITING_SETTLEMENT: 'bg-purple-900/40 text-purple-400 border-purple-800/60',
+  SETTLEMENT_REVIEW: 'bg-purple-900/40 text-purple-400 border-purple-800/60',
   COMPLETED: 'bg-green-900/40 text-green-400 border-green-800/60',
   CANCELLED: 'bg-red-900/40 text-red-400 border-red-800/60',
 };
@@ -26,10 +35,12 @@ const FILTER_OPTIONS = [
   { value: '', label: 'Semua Status' },
   { value: 'PENDING', label: 'Menunggu Paket' },
   { value: 'CHECKING', label: 'Pengecekan' },
-  { value: 'WAITING_PAYMENT', label: 'Menunggu Pembayaran' },
-  { value: 'PAYMENT_REVIEW', label: 'Review Pembayaran' },
+  { value: 'WAITING_DP', label: 'Menunggu DP' },
+  { value: 'DP_REVIEW', label: 'Review DP' },
   { value: 'IN_PROGRESS', label: 'Sedang Diperbaiki' },
   { value: 'TESTING', label: 'Testing & QC' },
+  { value: 'WAITING_SETTLEMENT', label: 'Menunggu Pelunasan' },
+  { value: 'SETTLEMENT_REVIEW', label: 'Review Pelunasan' },
   { value: 'COMPLETED', label: 'Selesai' },
   { value: 'CANCELLED', label: 'Dibatalkan' },
 ];
