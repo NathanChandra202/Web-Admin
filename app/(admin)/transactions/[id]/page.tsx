@@ -253,8 +253,8 @@ export default function TransactionDetailPage() {
             <div className="bg-gray-800 rounded-2xl border border-gray-700/50 overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-700/50 flex items-center justify-between">
                 <h2 className="text-white font-semibold">Informasi Booking</h2>
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${STATUS_COLORS[booking.status]}`}>
-                  {STATUS_LABELS[booking.status]}
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${STATUS_COLORS[booking.status] ?? 'bg-gray-700 text-gray-400 border-gray-600'}`}>
+                  {STATUS_LABELS[booking.status] ?? booking.status}
                 </span>
               </div>
               <div className="p-6">
