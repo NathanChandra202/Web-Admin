@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 
 type ClickLog = {
   id: number;
@@ -17,36 +17,29 @@ const DoubleClickTest = () => {
 
   const lastClickTime = useRef<number>(0);
   const logIdCounter = useRef<number>(0);
+  // Always keep a ref in sync so event handlers capture the latest threshold
+  const thresholdRef = useRef<number>(80);
 
-  // Detect simultaneous Left + Right click (abnormal behavior = error)
-  useEffect(() => {
-    const handleGlobalMouseDown = (e: MouseEvent) => {
-      // e.buttons bitmask: 1=left, 2=right, 3=both
-      if (e.buttons === 3) {
-        setClickCount((prev) => prev + 1);
-        setLogs((prevLogs) => {
-          const newLog = { id: logIdCounter.current++, timeDiff: 0, isError: true, label: 'Error' };
-          return [newLog, ...prevLogs].slice(0, 10);
-        });
-      }
-    };
+  const handleThresholdChange = (val: number) => {
+    thresholdRef.current = val;
+    setThreshold(val);
+  };
 
-    document.addEventListener('mousedown', handleGlobalMouseDown);
-    return () => document.removeEventListener('mousedown', handleGlobalMouseDown);
-  }, []);
+
+
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Only track pure left-click for chattering test
-    if (e.button !== 0 || e.buttons !== 1) return;
+    // Track all mouse buttons for double click detection
+    e.preventDefault();
 
     const currentTime = performance.now();
     const timeDiff = currentTime - lastClickTime.current;
 
     if (lastClickTime.current !== 0) {
       const diffRounded = Math.round(timeDiff * 10) / 10;
-      const isError = timeDiff < threshold;
+      // Use thresholdRef so we always get the latest slider value
+      const isError = timeDiff < thresholdRef.current;
 
-      // Only count when there's a real chattering/double click error
       if (isError) {
         setClickCount((prev) => prev + 1);
       }
@@ -70,6 +63,7 @@ const DoubleClickTest = () => {
   };
 
   const hasErrors = logs.some((l) => l.isError);
+  const lastIsError = logs.length > 0 && logs[0].isError;
 
   return (
     <div className="bg-[#12151c] border border-white/5 rounded-2xl p-6 shadow-2xl flex flex-col h-full hover:border-white/10 transition-colors">
@@ -77,7 +71,7 @@ const DoubleClickTest = () => {
         <div>
           <h2 className="text-xl font-bold text-white tracking-wide flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full ${hasErrors ? 'bg-[#e83131] animate-pulse' : 'bg-[#e83131]'}`}></span>
-            Chattering Test
+            Double Click Test
           </h2>
           <p className="text-xs text-gray-400 mt-1">High-precision double click detection</p>
         </div>
@@ -90,8 +84,8 @@ const DoubleClickTest = () => {
           <span className="text-xs font-black text-[#e83131] bg-[#e83131]/10 px-2 py-0.5 rounded">{threshold} ms</span>
         </div>
         <input
-          type="range" min="10" max="150" step="5" value={threshold}
-          onChange={(e) => setThreshold(Number(e.target.value))}
+          type="range" min="10" max="200" step="5" value={threshold}
+          onChange={(e) => handleThresholdChange(Number(e.target.value))}
           className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-[#e83131]"
         />
         <p className="text-[10px] text-gray-500 mt-2">Clicks below this gap will be counted as rapid/double click.</p>
@@ -99,11 +93,22 @@ const DoubleClickTest = () => {
 
       {/* Click Area */}
       <div
-        className="flex-grow min-h-[140px] bg-gradient-to-b from-white/[0.02] to-transparent border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center cursor-pointer transition-all hover:bg-white/5 active:bg-[#e83131]/10 active:border-[#e83131]/50 select-none mb-6 group"
+        className={`flex-grow min-h-[140px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all select-none mb-6 group ${
+          lastIsError
+            ? 'bg-[#e83131]/15 border-[#e83131]/70 shadow-[0_0_24px_rgba(232,49,49,0.25)]'
+            : 'bg-gradient-to-b from-white/[0.02] to-transparent border-white/10 hover:bg-white/5 active:bg-[#e83131]/10 active:border-[#e83131]/50'
+        }`}
         onMouseDown={handleMouseDown}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <span className="text-gray-500 font-bold tracking-widest text-lg group-hover:text-gray-300 transition-colors pointer-events-none">CLICK AREA</span>
+        {lastIsError ? (
+          <>
+            <span className="text-2xl pointer-events-none mb-1">⚠️</span>
+            <span className="text-[#e83131] font-black tracking-widest text-base pointer-events-none">DOUBLE CLICK!</span>
+          </>
+        ) : (
+          <span className="text-gray-500 font-bold tracking-widest text-lg group-hover:text-gray-300 transition-colors pointer-events-none">CLICK AREA</span>
+        )}
       </div>
 
       {/* Stats — only 2 boxes now */}
@@ -128,7 +133,7 @@ const DoubleClickTest = () => {
               key={log.id}
               className={`text-[11px] px-2 py-1 rounded-md font-mono font-medium ${log.isError ? 'bg-[#e83131]/20 text-[#e83131] border border-[#e83131]/30' : 'bg-white/5 text-gray-300 border border-white/5'}`}
             >
-              {log.label ? log.label : `${log.timeDiff}ms`}
+              {log.label ? log.label : log.isError ? 'Double Click' : `${log.timeDiff}ms`}
             </span>
           ))
         )}

@@ -1,14 +1,34 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+
+const BUTTON_NAMES: Record<number, string> = {
+  0: 'Left Click',
+  1: 'Middle Click',
+  2: 'Right Click',
+  3: 'Back (MB4)',
+  4: 'Forward (MB5)',
+};
+
+interface LogEntry {
+  id: number;
+  button: number;
+}
 
 const ButtonTest = () => {
   const [activeButtons, setActiveButtons] = useState<Record<number, boolean>>({});
+  const [clickLog, setClickLog] = useState<LogEntry[]>([]);
+  const logIdRef = useRef(0);
 
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
-      e.preventDefault();
+      // Don't block default behavior on interactive elements (e.g. sliders, buttons)
+      const tag = (e.target as HTMLElement).tagName.toLowerCase();
+      if (!['input', 'button', 'select', 'textarea', 'a'].includes(tag)) {
+        e.preventDefault();
+      }
       setActiveButtons((prev) => ({ ...prev, [e.button]: true }));
+      setClickLog((prev) => [{ id: logIdRef.current++, button: e.button }, ...prev].slice(0, 8));
     };
 
     const handleMouseUp = (e: MouseEvent) => {
@@ -47,8 +67,8 @@ const ButtonTest = () => {
         {/* Glow effect behind mouse */}
         <div className="absolute w-32 h-48 bg-[#e83131]/5 blur-[60px] rounded-full"></div>
         
-        {/* Sleek Mouse Graphic */}
-        <div className="relative w-40 h-64 bg-[#0c0e12] border border-white/10 rounded-[80px_80px_50px_50px] shadow-[inset_0_0_20px_rgba(0,0,0,0.5),0_10px_30px_rgba(0,0,0,0.3)] z-10 p-2 flex flex-col">
+        {/* Sleek Mouse Graphic — larger */}
+        <div className="relative w-48 h-72 bg-[#0c0e12] border border-white/10 rounded-[96px_96px_60px_60px] shadow-[inset_0_0_20px_rgba(0,0,0,0.5),0_10px_30px_rgba(0,0,0,0.3)] z-10 p-2 flex flex-col">
           
           <div className="flex justify-between h-24 gap-1.5 mb-2">
             {/* Left Click */}
@@ -99,17 +119,19 @@ const ButtonTest = () => {
         </div>
       </div>
 
-      <div className="mt-auto bg-[#0c0e12] rounded-xl border border-white/5 p-4 flex items-center justify-center min-h-[64px]">
-        {Object.values(activeButtons).some(Boolean) ? (
-          <div className="flex gap-2 flex-wrap justify-center">
-            {activeButtons[0] && <span className="bg-[#e83131]/20 text-[#e83131] border border-[#e83131]/30 px-3 py-1 rounded-lg text-sm font-bold tracking-wide">Left Click</span>}
-            {activeButtons[1] && <span className="bg-[#e83131]/20 text-[#e83131] border border-[#e83131]/30 px-3 py-1 rounded-lg text-sm font-bold tracking-wide">Middle Click</span>}
-            {activeButtons[2] && <span className="bg-[#e83131]/20 text-[#e83131] border border-[#e83131]/30 px-3 py-1 rounded-lg text-sm font-bold tracking-wide">Right Click</span>}
-            {activeButtons[3] && <span className="bg-[#e83131]/20 text-[#e83131] border border-[#e83131]/30 px-3 py-1 rounded-lg text-sm font-bold tracking-wide">Back (MB4)</span>}
-            {activeButtons[4] && <span className="bg-[#e83131]/20 text-[#e83131] border border-[#e83131]/30 px-3 py-1 rounded-lg text-sm font-bold tracking-wide">Forward (MB5)</span>}
-          </div>
+      {/* Click Log */}
+      <div className="mt-auto bg-[#0c0e12] rounded-xl border border-white/5 p-3 min-h-[72px] flex flex-wrap gap-1.5 content-start overflow-y-auto">
+        {clickLog.length === 0 ? (
+          <div className="w-full h-full flex items-center justify-center text-xs text-gray-600 font-medium">Belum ada input...</div>
         ) : (
-          <span className="text-gray-500 font-semibold tracking-widest text-sm uppercase">WAITING FOR INPUT...</span>
+          clickLog.map((entry) => (
+            <span
+              key={entry.id}
+              className="text-[11px] px-2 py-1 rounded-md font-mono font-medium bg-white/5 text-gray-300 border border-white/5 animate-[fadeIn_0.1s_ease]"
+            >
+              ● {BUTTON_NAMES[entry.button] ?? `Button ${entry.button}`}
+            </span>
+          ))
         )}
       </div>
     </div>
