@@ -26,8 +26,8 @@ export default function TesterPage() {
           {/* Top row: title + back button */}
           <div className="flex flex-col md:flex-row items-center justify-between mb-5">
             <div className="text-center md:text-left">
-              <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tighter text-white mb-1">
-                <span className="text-[#e83131]">Bengkel Mouse</span>
+              <h1 className="flex justify-center md:justify-start items-center mb-1">
+                <img src="/logo-bengkel-mouse.png" alt="Bengkel Mouse Logo" className="h-12 md:h-14 w-auto object-contain" />
               </h1>
               <p className="flex items-center gap-1.5 text-gray-500 mb-1">
                 <span className="text-xs tracking-[3px] uppercase">by</span>

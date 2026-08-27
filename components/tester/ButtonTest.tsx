@@ -24,17 +24,28 @@ const ButtonTest = () => {
 
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
-      // Don't block default behavior on interactive elements (e.g. sliders, buttons)
-      const tag = (e.target as HTMLElement).tagName.toLowerCase();
-      if (!['input', 'button', 'select', 'textarea', 'a'].includes(tag)) {
+      // Prevent default to stop back/forward navigation on side buttons
+      if (e.button === 3 || e.button === 4) {
         e.preventDefault();
+        e.stopPropagation();
+      } else {
+        const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+        if (!['input', 'button', 'select', 'textarea', 'a'].includes(tag)) {
+          e.preventDefault();
+        }
       }
+      
       setActiveButtons((prev) => ({ ...prev, [e.button]: true }));
       setClickLog((prev) => [{ id: logIdRef.current++, button: e.button }, ...prev].slice(0, 8));
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      e.preventDefault();
+      if (e.button === 3 || e.button === 4) {
+        e.preventDefault();
+        e.stopPropagation();
+      } else {
+        e.preventDefault();
+      }
       setActiveButtons((prev) => ({ ...prev, [e.button]: false }));
     };
 
@@ -57,16 +68,17 @@ const ButtonTest = () => {
       }, 150);
     };
 
-    document.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('mouseup', handleMouseUp);
-    document.addEventListener('contextmenu', handleContextMenu);
-    document.addEventListener('wheel', handleWheel, { passive: true });
+    // Use window and non-passive for strict capturing
+    window.addEventListener('mousedown', handleMouseDown, { passive: false });
+    window.addEventListener('mouseup', handleMouseUp, { passive: false });
+    window.addEventListener('contextmenu', handleContextMenu, { passive: false });
+    window.addEventListener('wheel', handleWheel, { passive: true });
 
     return () => {
-      document.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.removeEventListener('contextmenu', handleContextMenu);
-      document.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('contextmenu', handleContextMenu);
+      window.removeEventListener('wheel', handleWheel);
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     };
   }, []);
@@ -146,13 +158,34 @@ const ButtonTest = () => {
             </radialGradient>
           </defs>
 
-          {/* ===== SIDE BUTTONS (Behind the base) ===== */}
-          <rect x="3" y="105" width="8" height="24" rx="2.5" 
-            fill={activeButtons[4] ? '#3b82f6' : '#222'} 
-            style={{ filter: activeButtons[4] ? 'drop-shadow(0 0 8px #3b82f6)' : 'none', transform: activeButtons[4] ? 'translateX(-2px)' : 'none', transition: 'all 0.1s' }} />
-          <rect x="4" y="133" width="8" height="24" rx="2.5" 
-            fill={activeButtons[3] ? '#3b82f6' : '#222'} 
-            style={{ filter: activeButtons[3] ? 'drop-shadow(0 0 8px #3b82f6)' : 'none', transform: activeButtons[3] ? 'translateX(-2px)' : 'none', transition: 'all 0.1s' }} />
+          {/* ===== SIDE BUTTONS (Behind the base, perfectly following curve) ===== */}
+          <g>
+            {/* MB5 (Top Side Button) - Clickable to simulate for users without side buttons */}
+            <path d="M 11,103 Q 8,115 11.5,128 L 6.5,128 Q 3,115 6,103 Z"
+              fill={activeButtons[4] ? '#3b82f6' : '#3f434a'} stroke="#111" strokeWidth="1.5" strokeLinejoin="round"
+              className="cursor-pointer hover:brightness-125"
+              onPointerDown={(e) => { 
+                e.stopPropagation(); 
+                setActiveButtons(prev => ({...prev, 4: true})); 
+                setClickLog(prev => [{ id: logIdRef.current++, button: 4 }, ...prev].slice(0, 8)); 
+              }}
+              onPointerUp={(e) => { e.stopPropagation(); setActiveButtons(prev => ({...prev, 4: false})); }}
+              onPointerLeave={(e) => { setActiveButtons(prev => ({...prev, 4: false})); }}
+              style={{ filter: activeButtons[4] ? 'drop-shadow(0 0 8px #3b82f6)' : 'drop-shadow(-2px 2px 4px rgba(0,0,0,0.5))', transform: activeButtons[4] ? 'translateX(-2px)' : 'none', transition: 'all 0.1s' }} />
+            
+            {/* MB4 (Bottom Side Button) - Clickable to simulate for users without side buttons */}
+            <path d="M 12.5,133 Q 15,146 17.5,158 L 12.5,159 Q 10,146 7.5,134 Z"
+              fill={activeButtons[3] ? '#3b82f6' : '#3f434a'} stroke="#111" strokeWidth="1.5" strokeLinejoin="round"
+              className="cursor-pointer hover:brightness-125"
+              onPointerDown={(e) => { 
+                e.stopPropagation(); 
+                setActiveButtons(prev => ({...prev, 3: true})); 
+                setClickLog(prev => [{ id: logIdRef.current++, button: 3 }, ...prev].slice(0, 8)); 
+              }}
+              onPointerUp={(e) => { e.stopPropagation(); setActiveButtons(prev => ({...prev, 3: false})); }}
+              onPointerLeave={(e) => { setActiveButtons(prev => ({...prev, 3: false})); }}
+              style={{ filter: activeButtons[3] ? 'drop-shadow(0 0 8px #3b82f6)' : 'drop-shadow(-2px 2px 4px rgba(0,0,0,0.5))', transform: activeButtons[3] ? 'translateX(-2px)' : 'none', transition: 'all 0.1s' }} />
+          </g>
 
           {/* ===== BLACK BASE SHELL (Creates the outer rim and gaps) ===== */}
           <use href="#gpro-shape" fill="#181a1c" stroke="#111" strokeWidth="5" />
