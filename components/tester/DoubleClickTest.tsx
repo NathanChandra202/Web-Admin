@@ -10,7 +10,8 @@ type ClickLog = {
 };
 
 const DoubleClickTest = () => {
-  const [clickCount, setClickCount] = useState(0);
+  const [doubleClickCount, setDoubleClickCount] = useState(0);
+  const [totalClickCount, setTotalClickCount] = useState(0);
   const [fastestClick, setFastestClick] = useState<number | null>(null);
   const [threshold, setThreshold] = useState<number>(80);
   const [logs, setLogs] = useState<ClickLog[]>([]);
@@ -40,8 +41,10 @@ const DoubleClickTest = () => {
       // Use thresholdRef so we always get the latest slider value
       const isError = timeDiff < thresholdRef.current;
 
+      setTotalClickCount((prev) => prev + 1);
+
       if (isError) {
-        setClickCount((prev) => prev + 1);
+        setDoubleClickCount((prev) => prev + 1);
       }
 
       setFastestClick((prev) => (prev === null ? diffRounded : Math.min(prev, diffRounded)));
@@ -56,7 +59,8 @@ const DoubleClickTest = () => {
   };
 
   const reset = () => {
-    setClickCount(0);
+    setDoubleClickCount(0);
+    setTotalClickCount(0);
     setFastestClick(null);
     setLogs([]);
     lastClickTime.current = 0;
@@ -111,11 +115,15 @@ const DoubleClickTest = () => {
         )}
       </div>
 
-      {/* Stats — only 2 boxes now */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
+      {/* Stats — now 3 boxes */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="text-center bg-[#0c0e12] p-3 rounded-xl border border-white/5 flex flex-col justify-center">
-          <div className="text-[10px] text-gray-500 font-semibold tracking-wider mb-1">CLICKS</div>
-          <div className="text-2xl font-black text-white">{clickCount}</div>
+          <div className="text-[10px] text-gray-500 font-semibold tracking-wider mb-1">DOUBLE CLICKS</div>
+          <div className="text-2xl font-black text-[#e83131]">{doubleClickCount}</div>
+        </div>
+        <div className="text-center bg-[#0c0e12] p-3 rounded-xl border border-white/5 flex flex-col justify-center">
+          <div className="text-[10px] text-gray-500 font-semibold tracking-wider mb-1">TOTAL CLICKS</div>
+          <div className="text-2xl font-black text-white">{totalClickCount}</div>
         </div>
         <div className="text-center bg-[#0c0e12] p-3 rounded-xl border border-white/5 flex flex-col justify-center">
           <div className="text-[10px] text-gray-500 font-semibold tracking-wider mb-1">FASTEST</div>

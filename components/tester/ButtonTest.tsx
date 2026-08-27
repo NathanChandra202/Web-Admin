@@ -18,6 +18,8 @@ interface LogEntry {
 const ButtonTest = () => {
   const [activeButtons, setActiveButtons] = useState<Record<number, boolean>>({});
   const [clickLog, setClickLog] = useState<LogEntry[]>([]);
+  const [scrollDirection, setScrollDirection] = useState<'up' | 'down' | null>(null);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const logIdRef = useRef(0);
 
   useEffect(() => {
@@ -40,14 +42,32 @@ const ButtonTest = () => {
       e.preventDefault();
     };
 
+    const handleWheel = (e: WheelEvent) => {
+      if (e.deltaY > 0) {
+        setScrollDirection('down');
+      } else if (e.deltaY < 0) {
+        setScrollDirection('up');
+      }
+      
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      scrollTimeoutRef.current = setTimeout(() => {
+        setScrollDirection(null);
+      }, 150);
+    };
+
     document.addEventListener('mousedown', handleMouseDown);
     document.addEventListener('mouseup', handleMouseUp);
     document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('wheel', handleWheel, { passive: true });
 
     return () => {
       document.removeEventListener('mousedown', handleMouseDown);
       document.removeEventListener('mouseup', handleMouseUp);
       document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('wheel', handleWheel);
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     };
   }, []);
 
@@ -64,98 +84,133 @@ const ButtonTest = () => {
       </div>
 
       <div className="flex-grow flex items-center justify-center mb-8 relative">
-        {/* Subtle Glow */}
-        <div className="absolute w-40 h-56 bg-[#e83131]/10 blur-[60px] rounded-full"></div>
+        {/* Subtle ambient glow */}
+        <div className="absolute w-56 h-64 bg-white/[0.04] blur-[80px] rounded-full"></div>
 
-        {/* Mouse Body */}
-        <div className="relative w-[170px] h-[290px] z-10 flex flex-col drop-shadow-2xl">
+        {/* Photorealistic Logitech G Pro Wireless SVG (Widened Proportions) */}
+        <svg viewBox="-10 0 220 360" className="w-[220px] h-[360px] relative z-10" style={{ filter: 'drop-shadow(0 20px 35px rgba(0,0,0,0.6))' }}>
+          <defs>
+            {/* The Perfect G Pro Potato Shape Contour (Widened by ~30% for standard mouse feel) */}
+            <path id="gpro-shape" d="
+              M 100, 20
+              C 146, 20,  172, 30,  185, 80
+              C 191, 115, 185, 140, 182, 160
+              C 179, 180, 181, 210, 191, 250
+              C 199, 280, 185, 320, 152, 335
+              C 133, 345, 113, 345, 100, 345
+              C 87,  345, 67,  345, 48,  335
+              C 15,  320, 1,   280, 9,   250
+              C 19,  210, 21,  180, 18,  160
+              C 15,  140, 9,   115, 15,  80
+              C 28,  30,  54,  20,  100, 20 Z
+            "/>
 
-          {/* Top Half (Buttons & Wheel) */}
-          <div className="flex justify-between h-[130px] gap-1 relative z-20">
-            {/* Left Click */}
-            <div
-              className={`flex-1 rounded-[50px_4px_10px_0] border-t border-l border-white/5 shadow-[-4px_-2px_15px_rgba(0,0,0,0.6)] transition-all duration-75 relative overflow-hidden origin-bottom-right ${activeButtons[0]
-                  ? 'bg-[#e83131] shadow-[0_0_30px_rgba(232,49,49,0.8),inset_0_0_10px_rgba(255,255,255,0.3)] scale-95'
-                  : 'bg-gradient-to-b from-[#1c1f26] to-[#12141a] hover:from-[#232730]'
-                }`}
-            >
-              {/* Subtle inner bevel */}
-              <div className="absolute right-0 top-0 bottom-0 w-[1px] bg-black/80"></div>
-            </div>
+            {/* Clip paths to slice the shape perfectly with 2px natural gaps */}
+            <clipPath id="left-clip">
+              <path d="M -10,0 L 99,0 L 99,50 A 8 8 0 0 0 91 58 L 91 102 A 8 8 0 0 0 99 110 L 99,156 Q 50,159 -10,163 Z" />
+            </clipPath>
+            
+            <clipPath id="right-clip">
+              <path d="M 101,0 L 210,0 L 210,163 Q 150,159 101,156 L 101,110 A 8 8 0 0 0 109 102 L 109 58 A 8 8 0 0 0 101 50 Z" />
+            </clipPath>
 
-            {/* Center column (Wheel + DPI) */}
-            <div className="w-[34px] flex flex-col items-center relative bg-[#060709] border-x border-black/80 shadow-[inset_0_0_10px_rgba(0,0,0,1)] pb-2 rounded-b-md">
+            <clipPath id="palm-clip">
+              {/* Horizontal gap curves upwards in the center to match the real mouse */}
+              <path d="M -10,165 Q 100,158 210,165 L 210,400 L -10,400 Z" />
+            </clipPath>
 
-              {/* Scroll Wheel Container */}
-              <div className="mt-5 w-5 h-[48px] bg-black rounded-full p-[2px] shadow-inner flex items-center justify-center relative">
-                {/* Wheel RGB edges */}
-                <div className="absolute inset-[1px] rounded-full border-[1.5px] border-[#e83131] shadow-[0_0_8px_rgba(232,49,49,0.6)] opacity-80"></div>
-                <div
-                  className={`w-full h-full rounded-full flex items-center justify-center overflow-hidden transition-all duration-75 z-10 ${activeButtons[1] ? 'bg-[#e83131] shadow-[0_0_20px_rgba(232,49,49,1)] scale-[0.85]' : 'bg-[#151515]'
-                    }`}
-                >
-                  <div className="w-full h-full flex flex-col justify-between opacity-50 py-1">
-                    {[...Array(8)].map((_, i) => (
-                      <div key={i} className="w-full h-[1.5px] bg-black"></div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+            {/* Gradients for material realism (Soft studio lighting) */}
+            <radialGradient id="l-grad" cx="30%" cy="30%" r="120%">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="80%" stopColor="#e2e5e9" />
+              <stop offset="100%" stopColor="#c3c7cb" />
+            </radialGradient>
+            <radialGradient id="r-grad" cx="70%" cy="30%" r="120%">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="80%" stopColor="#e2e5e9" />
+              <stop offset="100%" stopColor="#c3c7cb" />
+            </radialGradient>
+            <radialGradient id="p-grad" cx="50%" cy="10%" r="120%">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="60%" stopColor="#e8eaed" />
+              <stop offset="100%" stopColor="#b9bdc2" />
+            </radialGradient>
 
-              {/* DPI Button */}
-              <div className="mt-4 w-4 h-[18px] bg-[#1a1c23] rounded-sm border border-black shadow-[0_2px_5px_rgba(0,0,0,0.8)] flex items-center justify-center relative">
-                <div className="w-2 h-[2px] bg-gray-500 rounded-sm"></div>
-              </div>
+            <radialGradient id="l-grad-active" cx="30%" cy="30%" r="120%">
+              <stop offset="0%" stopColor="#e8ecef" />
+              <stop offset="100%" stopColor="#a3a7ab" />
+            </radialGradient>
+            <radialGradient id="r-grad-active" cx="70%" cy="30%" r="120%">
+              <stop offset="0%" stopColor="#e8ecef" />
+              <stop offset="100%" stopColor="#a3a7ab" />
+            </radialGradient>
+          </defs>
 
-              {/* Decorative line below DPI */}
-              <div className="mt-2 w-[2px] h-6 bg-[#e83131] shadow-[0_0_8px_rgba(232,49,49,0.8)]"></div>
-            </div>
+          {/* ===== SIDE BUTTONS (Behind the base) ===== */}
+          <rect x="3" y="105" width="8" height="24" rx="2.5" 
+            fill={activeButtons[4] ? '#3b82f6' : '#222'} 
+            style={{ filter: activeButtons[4] ? 'drop-shadow(0 0 8px #3b82f6)' : 'none', transform: activeButtons[4] ? 'translateX(-2px)' : 'none', transition: 'all 0.1s' }} />
+          <rect x="4" y="133" width="8" height="24" rx="2.5" 
+            fill={activeButtons[3] ? '#3b82f6' : '#222'} 
+            style={{ filter: activeButtons[3] ? 'drop-shadow(0 0 8px #3b82f6)' : 'none', transform: activeButtons[3] ? 'translateX(-2px)' : 'none', transition: 'all 0.1s' }} />
 
-            {/* Right Click */}
-            <div
-              className={`flex-1 rounded-[4px_50px_0_10px] border-t border-r border-white/5 shadow-[4px_-2px_15px_rgba(0,0,0,0.6)] transition-all duration-75 relative overflow-hidden origin-bottom-left ${activeButtons[2]
-                  ? 'bg-[#e83131] shadow-[0_0_30px_rgba(232,49,49,0.8),inset_0_0_10px_rgba(255,255,255,0.3)] scale-95'
-                  : 'bg-gradient-to-b from-[#1c1f26] to-[#12141a] hover:from-[#232730]'
-                }`}
-            >
-              {/* Subtle inner bevel */}
-              <div className="absolute left-0 top-0 bottom-0 w-[1px] bg-black/80"></div>
-            </div>
-          </div>
+          {/* ===== BLACK BASE SHELL (Creates the outer rim and gaps) ===== */}
+          <use href="#gpro-shape" fill="#181a1c" stroke="#111" strokeWidth="5" />
 
-          {/* Middle RGB Line */}
-          <div className="w-[98%] mx-auto h-4 relative flex items-center justify-center z-30 mt-[-2px]">
-            {/* Center glowing line */}
-            <div className="w-full h-[2px] bg-[#e83131]/80 shadow-[0_0_8px_rgba(232,49,49,0.8)] z-10"></div>
-          </div>
+          {/* ===== LEFT BUTTON ===== */}
+          <g style={{ transformOrigin: '50px 140px', transform: activeButtons[0] ? 'scale(0.985)' : 'none', transition: 'all 0.05s' }}>
+            <use href="#gpro-shape" clipPath="url(#left-clip)" fill={activeButtons[0] ? 'url(#l-grad-active)' : 'url(#l-grad)'} />
+            <use href="#gpro-shape" clipPath="url(#left-clip)" fill="none" stroke="#ffffff" strokeWidth="1.5" opacity="0.6" />
+          </g>
 
-          {/* Lower Body (Palm Rest) */}
-          <div className="flex-1 bg-gradient-to-b from-[#12141a] to-[#0a0b0e] rounded-[0_0_70px_70px] border-b border-x border-white/[0.04] shadow-[inset_0_-15px_40px_rgba(0,0,0,1)] relative flex flex-col items-center justify-end pb-8 z-20 -mt-2">
+          {/* ===== RIGHT BUTTON ===== */}
+          <g style={{ transformOrigin: '150px 140px', transform: activeButtons[2] ? 'scale(0.985)' : 'none', transition: 'all 0.05s' }}>
+            <use href="#gpro-shape" clipPath="url(#right-clip)" fill={activeButtons[2] ? 'url(#r-grad-active)' : 'url(#r-grad)'} />
+            <use href="#gpro-shape" clipPath="url(#right-clip)" fill="none" stroke="#ffffff" strokeWidth="1.5" opacity="0.6" />
+          </g>
 
-            {/* Abstract Geometric Logo (matching the style) */}
-            <div className="w-10 h-10 flex flex-col items-center justify-center opacity-80 mt-auto mb-2">
-              <svg viewBox="0 0 24 24" className="w-8 h-8 text-white/90 fill-current drop-shadow-[0_0_3px_rgba(255,255,255,0.4)]">
-                <path d="M12 2 L2 7 L12 12 L22 7 Z" />
-                <path d="M2 10 L12 15 L22 10 L22 14 L12 19 L2 14 Z" opacity="0.7" />
-                <path d="M7 19 L12 21.5 L17 19 L17 22 L12 24 L7 22 Z" opacity="0.4" />
-              </svg>
-            </div>
-          </div>
+          {/* ===== PALM REST ===== */}
+          <g>
+            <use href="#gpro-shape" clipPath="url(#palm-clip)" fill="url(#p-grad)" />
+            <use href="#gpro-shape" clipPath="url(#palm-clip)" fill="none" stroke="#ffffff" strokeWidth="1.5" opacity="0.6" />
+          </g>
 
-          {/* Side Buttons Container */}
-          <div className="absolute left-[-6px] top-[100px] flex flex-col gap-2 z-10">
-            {/* Forward */}
-            <div
-              className={`w-[6px] h-[35px] rounded-l-md transition-all duration-75 border-y border-l border-black shadow-[-3px_0_8px_rgba(0,0,0,0.6)] ${activeButtons[4] ? 'bg-[#e83131] shadow-[0_0_20px_rgba(232,49,49,1),-4px_0_15px_rgba(232,49,49,0.8)] -translate-x-[2px]' : 'bg-[#15171e]'
-                }`}
-            />
-            {/* Back */}
-            <div
-              className={`w-[6px] h-[35px] rounded-l-md transition-all duration-75 border-y border-l border-black shadow-[-3px_0_8px_rgba(0,0,0,0.6)] ${activeButtons[3] ? 'bg-[#e83131] shadow-[0_0_20px_rgba(232,49,49,1),-4px_0_15px_rgba(232,49,49,0.8)] -translate-x-[2px]' : 'bg-[#15171e]'
-                }`}
-            />
-          </div>
-        </div>
+          {/* ===== SCROLL WHEEL HOLE ===== */}
+          <rect x="91" y="50" width="18" height="60" rx="9" fill="#0a0a0a" />
+
+          {/* ===== SCROLL WHEEL ===== */}
+          <rect x="94" y="55" width="12" height="50" rx="6" 
+            fill={activeButtons[1] ? '#3b82f6' : '#262829'} 
+            style={{ filter: activeButtons[1] ? 'drop-shadow(0 0 8px #3b82f6)' : 'none', transition: 'all 0.05s' }} />
+          {[0,1,2,3,4,5,6,7,8,9,10].map(i => (
+            <line key={i} x1="94" y1={60 + i * 4} x2="106" y2={60 + i * 4} stroke="#111" strokeWidth="1.2" opacity="0.8" />
+          ))}
+
+          {/* SCROLL ARROWS */}
+          <g style={{ 
+            opacity: scrollDirection === 'up' ? 1 : 0, 
+            transform: scrollDirection === 'up' ? 'translateY(-3px)' : 'translateY(0)',
+            transition: 'all 0.1s ease-out' 
+          }}>
+            <path d="M 100 25 L 88 42 L 112 42 Z" fill="#60a5fa" stroke="#3b82f6" strokeWidth="1" style={{ filter: 'drop-shadow(0 0 10px rgba(96, 165, 250, 0.8))' }} />
+          </g>
+          <g style={{ 
+            opacity: scrollDirection === 'down' ? 1 : 0, 
+            transform: scrollDirection === 'down' ? 'translateY(3px)' : 'translateY(0)',
+            transition: 'all 0.1s ease-out' 
+          }}>
+            <path d="M 100 135 L 88 118 L 112 118 Z" fill="#60a5fa" stroke="#3b82f6" strokeWidth="1" style={{ filter: 'drop-shadow(0 0 10px rgba(96, 165, 250, 0.8))' }} />
+          </g>
+
+          {/* ===== LED INDICATOR ===== */}
+          <circle cx="100" cy="195" r="2.5" fill="#4ade80" style={{ filter: 'drop-shadow(0 0 6px #4ade80)' }} />
+          <circle cx="100" cy="195" r="6" fill="#4ade80" opacity="0.15" />
+
+          {/* ===== LOGITECH G LOGO ===== */}
+          <g transform="translate(100, 275)" opacity="0.6">
+            <path d="M16 5C9.9 5 5 9.9 5 16s4.9 11 11 11c5.2 0 9.5-3.6 10.7-8.5h-5.2c-.9 2.2-3.1 3.8-5.5 3.8-3.3 0-6-2.7-6-6s2.7-6 6-6c2.4 0 4.6 1.6 5.5 3.8h5.2C25.5 8.6 21.2 5 16 5zm2 10v4.5h7.5V15H18z" fill="#71717a" transform="translate(-16, -16) scale(1.3)" />
+          </g>
+        </svg>
       </div>
 
       {/* Click Log */}
