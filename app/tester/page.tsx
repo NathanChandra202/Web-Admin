@@ -37,7 +37,16 @@ export default function TesterPage() {
                 <div className="h-[1px] w-8 bg-gradient-to-r from-transparent to-gray-500/50 hidden md:block"></div>
                 <span className="text-[9px] tracking-[4px] uppercase text-gray-500 font-bold">Powered By</span>
                 <div className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-black/40 to-black/10 rounded-md border border-white/5 shadow-inner">
-                  <span className="text-[#e83131] font-black italic text-lg leading-none tracking-tighter drop-shadow-[0_0_8px_rgba(232,49,49,0.3)]">26</span>
+                  <span 
+                    className="font-black italic text-lg leading-none tracking-tighter"
+                    style={{
+                      fontFamily: 'Georgia, "Times New Roman", serif',
+                      color: '#C8991A',
+                      textShadow: '0 0 14px rgba(200,153,26,0.45)',
+                    }}
+                  >
+                    26
+                  </span>
                   <span className="text-gray-300 font-bold text-[10px] tracking-[0.2em] uppercase">Computer</span>
                 </div>
                 <div className="h-[1px] w-8 bg-gradient-to-l from-transparent to-gray-500/50 hidden md:block"></div>

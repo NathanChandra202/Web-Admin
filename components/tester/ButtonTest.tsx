@@ -239,9 +239,9 @@ const ButtonTest = () => {
           <circle cx="100" cy="195" r="2.5" fill="#4ade80" style={{ filter: 'drop-shadow(0 0 6px #4ade80)' }} />
           <circle cx="100" cy="195" r="6" fill="#4ade80" opacity="0.15" />
 
-          {/* ===== LOGITECH G LOGO ===== */}
-          <g transform="translate(100, 275)" opacity="0.6">
-            <path d="M16 5C9.9 5 5 9.9 5 16s4.9 11 11 11c5.2 0 9.5-3.6 10.7-8.5h-5.2c-.9 2.2-3.1 3.8-5.5 3.8-3.3 0-6-2.7-6-6s2.7-6 6-6c2.4 0 4.6 1.6 5.5 3.8h5.2C25.5 8.6 21.2 5 16 5zm2 10v4.5h7.5V15H18z" fill="#71717a" transform="translate(-16, -16) scale(1.3)" />
+          {/* ===== 26 COMPUTER LOGO ===== */}
+          <g transform="translate(75, 250)">
+            <image href="/logo-26-computer.png" width="50" height="50" style={{ filter: 'drop-shadow(0 0 10px rgba(180, 20, 20, 0.4))', opacity: 0.8 }} />
           </g>
         </svg>
       </div>
