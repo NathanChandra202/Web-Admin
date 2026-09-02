@@ -28,6 +28,7 @@ const ButtonTest = () => {
   const [scrollDirection, setScrollDirection] = useState<'up' | 'down' | null>(null);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const logIdRef = useRef(0);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
@@ -57,6 +58,9 @@ const ButtonTest = () => {
     const handleContextMenu = (e: MouseEvent) => e.preventDefault();
 
     const handleWheel = (e: WheelEvent) => {
+      if (containerRef.current?.contains(e.target as Node)) {
+        e.preventDefault();
+      }
       setScrollDirection(e.deltaY > 0 ? 'down' : 'up');
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
       scrollTimeoutRef.current = setTimeout(() => setScrollDirection(null), 150);
@@ -65,7 +69,7 @@ const ButtonTest = () => {
     window.addEventListener('mousedown', handleMouseDown, { passive: false });
     window.addEventListener('mouseup', handleMouseUp, { passive: false });
     window.addEventListener('contextmenu', handleContextMenu, { passive: false });
-    window.addEventListener('wheel', handleWheel, { passive: true });
+    window.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
       window.removeEventListener('mousedown', handleMouseDown);
@@ -80,7 +84,7 @@ const ButtonTest = () => {
   const activeFilter = 'drop-shadow(0 0 14px rgba(96,165,250,0.85))';
 
   return (
-    <div className="bg-[#12151c] border border-white/5 rounded-2xl p-6 shadow-2xl flex flex-col h-full hover:border-white/10 transition-colors">
+    <div ref={containerRef} className="bg-[#12151c] border border-white/5 rounded-2xl p-6 shadow-2xl flex flex-col h-full hover:border-white/10 transition-colors">
       {/* Header */}
       <div className="flex justify-between items-center mb-4 shrink-0">
         <div>
