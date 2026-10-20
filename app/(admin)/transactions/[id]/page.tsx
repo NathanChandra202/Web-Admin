@@ -8,10 +8,12 @@ import {
   getBookingParts, addBookingPart, removeBookingPart,
   getStocks,
   formatDate, formatRupiah, formatBookingId, getNextStatus,
+  buildAdminWhatsAppUrl,
   STATUS_LABELS, STATUS_FLOW, IMAGE_BASE_URL,
   type Booking, type BookingStatus, type BookingPart, type Stock,
 } from '@/lib/api';
 import FadeContent from '@/components/FadeContent';
+import { MessageCircle, Check } from 'lucide-react';
 
 const STATUS_COLORS: Record<BookingStatus, string> = {
   PENDING:            'bg-orange-900/40 text-orange-400 border-orange-800/60',
@@ -261,14 +263,36 @@ export default function TransactionDetailPage() {
                 <InfoRow label="ID Booking" value={formatBookingId(booking.id)} mono />
                 <InfoRow label="Pelanggan" value={booking.user?.name ?? '—'} />
                 <InfoRow label="Email" value={booking.user?.email ?? '—'} />
-                {booking.status === 'COMPLETED' && (
-                  <InfoRow
-                    label="Alamat Pelanggan"
-                    value={booking.user?.address?.trim() ? booking.user.address : '⚠ Belum diisi'}
-                  />
+                {booking.user?.phone && (
+                  <div className="flex items-center justify-between gap-4 py-2.5 border-b border-gray-700/40">
+                    <span className="text-gray-400 text-sm shrink-0 w-36">No. WhatsApp</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-emerald-400 font-semibold text-sm">{booking.user.phone}</span>
+                      <a
+                        href={buildAdminWhatsAppUrl({
+                          customerPhone: booking.user.phone,
+                          customerName: booking.user.name ?? 'Pelanggan',
+                          bookingId: booking.id,
+                          mouseName: booking.mouseName,
+                        })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-semibold flex items-center gap-1 transition"
+                      >
+                        <MessageCircle size={13} className="text-white" />
+                        <span>Chat WA</span>
+                      </a>
+                    </div>
+                  </div>
+                )}
+                {booking.user?.address && (
+                  <InfoRow label="Alamat / Kota" value={booking.user.address} />
                 )}
                 <InfoRow label="Nama Mouse" value={booking.mouseName} />
                 <InfoRow label="Keluhan" value={booking.issue} />
+                {booking.details && (
+                  <InfoRow label="Catatan Detail" value={booking.details} />
+                )}
                 <InfoRow label="Tanggal Masuk" value={formatDate(booking.createdAt)} />
                 <InfoRow label="Terakhir Diupdate" value={formatDate(booking.updatedAt)} />
                 <InfoRow label="Total Biaya" value={booking.totalAmount != null ? formatRupiah(booking.totalAmount) : 'Belum ditetapkan'} highlight={booking.totalAmount != null} />
@@ -473,7 +497,7 @@ export default function TransactionDetailPage() {
                     return (
                       <div key={s} className="flex items-center gap-3">
                         <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${isDone ? 'bg-green-600 text-white' : isCurrent ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-500'}`}>
-                          {isDone ? '✓' : i + 1}
+                          {isDone ? <Check size={13} strokeWidth={3} /> : i + 1}
                         </div>
                         <span className={`text-sm ${isCurrent ? 'text-white font-medium' : isDone ? 'text-green-400' : 'text-gray-500'}`}>
                           {STATUS_LABELS[s]}

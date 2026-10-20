@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getBookings, formatDate, formatRupiah, type Booking, type BookingStatus } from '@/lib/api';
+import { getBookings, formatDate, formatRupiah, buildAdminWhatsAppUrl, type Booking, type BookingStatus } from '@/lib/api';
 import FadeContent from '@/components/FadeContent';
+import { MessageCircle } from 'lucide-react';
 
 const STATUS_LABELS: Record<BookingStatus, string> = {
   PENDING: 'Menunggu Paket',
@@ -131,7 +132,13 @@ export default function TransactionsPage() {
                     <td className="px-6 py-4 text-gray-300 font-mono text-xs whitespace-nowrap">BM-{b.id.slice(0, 5).toUpperCase()}</td>
                     <td className="px-6 py-4 text-white whitespace-nowrap">
                       <div>{b.user?.name ?? '—'}</div>
-                      <div className="text-gray-500 text-xs">{b.user?.email ?? ''}</div>
+                      <div className="text-gray-400 text-xs flex items-center gap-1 mt-0.5">
+                        {b.user?.phone ? (
+                          <span className="text-emerald-400 font-mono text-[11px]">{b.user.phone}</span>
+                        ) : (
+                          <span className="text-gray-500">{b.user?.email ?? ''}</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-gray-300 max-w-[160px] truncate">{b.mouseName}</td>
                     <td className="px-6 py-4 text-gray-400 text-xs whitespace-nowrap">{formatDate(b.createdAt)}</td>
@@ -143,12 +150,31 @@ export default function TransactionsPage() {
                         {STATUS_LABELS[b.status] ?? b.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <Link href={`/transactions/${b.id}`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-900/40 hover:bg-red-800/60 text-red-400 rounded-lg text-xs font-medium transition border border-red-800/50">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                        Detail
-                      </Link>
+                    <td className="px-6 py-4 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-2">
+                        {b.user?.phone && (
+                          <a
+                            href={buildAdminWhatsAppUrl({
+                              customerPhone: b.user.phone,
+                              customerName: b.user?.name ?? 'Pelanggan',
+                              bookingId: b.id,
+                              mouseName: b.mouseName,
+                            })}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Chat WhatsApp Konsul Harga"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-950/60 hover:bg-emerald-800/80 text-emerald-400 hover:text-emerald-200 rounded-lg text-xs font-medium transition border border-emerald-800/60"
+                          >
+                            <MessageCircle size={13} className="text-emerald-400" />
+                            <span className="hidden xl:inline">WA</span>
+                          </a>
+                        )}
+                        <Link href={`/transactions/${b.id}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-900/40 hover:bg-red-800/60 text-red-400 rounded-lg text-xs font-medium transition border border-red-800/50">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                          Detail
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
+import { AlertTriangle } from 'lucide-react';
 
 type ClickLog = {
   id: number;
@@ -107,7 +108,7 @@ const DoubleClickTest = () => {
       >
         {lastIsError ? (
           <>
-            <span className="text-2xl pointer-events-none mb-1">⚠️</span>
+            <AlertTriangle size={26} className="text-[#e83131] pointer-events-none mb-1 animate-pulse" />
             <span className="text-[#e83131] font-black tracking-widest text-base pointer-events-none">DOUBLE CLICK!</span>
           </>
         ) : (

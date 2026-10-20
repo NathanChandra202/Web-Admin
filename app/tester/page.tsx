@@ -1,15 +1,13 @@
-import React from 'react';
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import DoubleClickTest from '../../components/tester/DoubleClickTest';
 import ButtonTest from '../../components/tester/ButtonTest';
 import ScrollTest from '../../components/tester/ScrollTest';
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Mouse Tester | Bengkel Mouse',
-  description: 'Test your gaming mouse for double clicking (chattering), button functionality, and scroll wheel issues.',
-};
-
-import { Monitor, Gavel, Globe, Wrench, Cpu, ShieldCheck } from 'lucide-react';
+import { isAuthenticated, isAdmin, getUser, removeToken, StoredUser } from '@/lib/auth';
+import { Monitor, Gavel, Globe, Wrench, Cpu, ShieldCheck, LogOut, User as UserIcon } from 'lucide-react';
 
 const SERVICES = [
   { icon: <Monitor size={16} strokeWidth={2.5} />, name: 'Computer Sales' },
@@ -21,14 +19,47 @@ const SERVICES = [
 ];
 
 export default function TesterPage() {
+  const router = useRouter();
+  const [currentUser, setCurrentUser] = useState<StoredUser | null>(null);
+  const [userIsAdmin, setUserIsAdmin] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    if (isAuthenticated()) {
+      setCurrentUser(getUser());
+      setUserIsAdmin(isAdmin());
+    } else {
+      setCurrentUser(null);
+      setUserIsAdmin(false);
+    }
+    setCheckingAuth(false);
+  }, []);
+
+  function handleLogout() {
+    removeToken();
+    router.replace('/login');
+  }
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-[#0c0e12] flex items-center justify-center text-gray-400 font-sans text-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+          <span>Memeriksa status login...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0c0e12] text-white p-4 md:p-8 font-sans selection:bg-[#e83131] selection:text-white">
       <div className="max-w-[1400px] mx-auto">
         <header className="mb-10 border-b border-[#272d3b] pb-8">
-          {/* Top row: title + back button */}
-          <div className="flex flex-col md:flex-row items-center justify-between mb-8">
+          {/* Top row: title + user controls & action buttons */}
+          <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-6">
             <div className="text-center md:text-left flex flex-col items-center md:items-start gap-3">
               <h1 className="flex justify-center md:justify-start items-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/logo-bengkel-mouse.png" alt="Bengkel Mouse Logo" className="h-12 md:h-14 w-auto object-contain drop-shadow-lg" />
               </h1>
               
@@ -53,17 +84,57 @@ export default function TesterPage() {
               </div>
             </div>
 
-            <a 
-              href="/dashboard" 
-              className="group relative mt-6 md:mt-0 px-6 py-2.5 bg-[#12151c] rounded-lg text-xs font-bold uppercase tracking-widest text-gray-400 overflow-hidden transition-all hover:text-white"
-            >
-              <div className="absolute inset-0 border border-white/10 rounded-lg group-hover:border-[#e83131]/50 transition-colors duration-300"></div>
-              <div className="absolute inset-0 bg-gradient-to-r from-[#e83131]/0 via-[#e83131]/10 to-[#e83131]/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              <span className="relative z-10 flex items-center gap-2">
-                Back to Dashboard
+            {/* Action Buttons & User Profile */}
+            <div className="flex flex-wrap items-center justify-center md:justify-end gap-3">
+              <Link 
+                href="/reservasi" 
+                className="group relative px-5 py-2.5 bg-red-600 hover:bg-red-500 rounded-lg text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-red-900/40 transition-all flex items-center gap-2"
+              >
+                <Wrench size={14} className="text-white shrink-0" />
+                <span>Reservasi Servis</span>
                 <span className="group-hover:translate-x-1 transition-transform duration-300">→</span>
-              </span>
-            </a>
+              </Link>
+
+              {currentUser ? (
+                <>
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#141824] border border-[#232b3d] text-xs text-gray-300">
+                    <UserIcon size={14} className="text-red-400" />
+                    <span className="font-semibold text-white truncate max-w-[140px]">{currentUser.name || currentUser.email}</span>
+                    {userIsAdmin && (
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-red-950 text-red-400 border border-red-800">
+                        ADMIN
+                      </span>
+                    )}
+                  </div>
+
+                  {userIsAdmin && (
+                    <Link 
+                      href="/dashboard" 
+                      className="px-4 py-2.5 bg-[#12151c] rounded-lg text-xs font-bold uppercase tracking-widest text-amber-400 hover:text-amber-300 border border-amber-500/30 transition-all"
+                    >
+                      Dashboard Admin
+                    </Link>
+                  )}
+
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-1.5 px-3 py-2.5 bg-[#12151c] hover:bg-red-950/30 border border-white/10 hover:border-red-600/40 text-gray-400 hover:text-red-400 rounded-lg text-xs font-semibold transition"
+                    title="Keluar dari akun"
+                  >
+                    <LogOut size={14} />
+                    <span>Keluar</span>
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-400 hover:text-red-300 text-xs font-bold transition"
+                >
+                  <UserIcon size={14} />
+                  <span>Masuk / Daftar</span>
+                </Link>
+              )}
+            </div>
           </div>
 
           {/* Services chips */}
@@ -92,6 +163,29 @@ export default function TesterPage() {
           <ButtonTest />
           <ScrollTest />
         </main>
+
+        {/* CTA Banner to Reservasi */}
+        <div className="mt-12 rounded-2xl bg-gradient-to-r from-red-950/40 via-[#161a25] to-emerald-950/30 border border-red-500/20 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
+          <div className="text-center md:text-left">
+            <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-red-600/20 text-red-400 border border-red-500/30 uppercase tracking-wider">
+              Diagnosa Selesai?
+            </span>
+            <h3 className="text-xl md:text-2xl font-bold text-white mt-1.5">
+              Mouse Mengalami Double Click atau Scroll Loncat?
+            </h3>
+            <p className="text-gray-400 text-xs md:text-sm mt-1 max-w-xl">
+              Jangan buru-buru beli baru! Buat reservasi servis online tanpa biaya di awal. Konsultasikan pilihan switch &amp; estimasi harga langsung via WhatsApp dengan teknisi kami.
+            </p>
+          </div>
+          <Link
+            href="/reservasi"
+            className="px-6 py-3.5 bg-red-600 hover:bg-red-500 text-white font-bold text-xs md:text-sm rounded-xl shadow-lg shadow-red-950/50 hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-2.5 shrink-0 border border-red-500/40"
+          >
+            <Wrench size={15} className="text-white shrink-0" />
+            <span>Buat Reservasi &amp; Konsul Harga</span>
+            <span>→</span>
+          </Link>
+        </div>
         
         <footer className="mt-16 text-center text-xs text-gray-600 uppercase tracking-widest border-t border-[#272d3b] pt-8">
           &copy; {new Date().getFullYear()} Bengkel Mouse. All rights reserved.

@@ -129,7 +129,7 @@ export default function DashboardPage() {
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-white tracking-tight">Dashboard</h1>
-            <p className="text-gray-500 text-sm mt-1">Selamat datang di panel admin Bengkel Mouse 🖱️</p>
+            <p className="text-gray-500 text-sm mt-1">Selamat datang di panel manajemen Bengkel Mouse</p>
           </div>
           <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-gray-900 border border-gray-800 rounded-xl text-sm text-gray-400">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />

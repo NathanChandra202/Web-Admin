@@ -63,7 +63,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (!isAuthenticated()) { router.replace('/login'); return; }
     getMe().then(({ user }) => {
-      if (user.role !== 'ADMIN') { removeToken(); router.replace('/login'); return; }
+      if (user.role !== 'ADMIN') { router.replace('/tester'); return; }
       setAdminName(user.name || 'Admin');
     }).catch(() => { removeToken(); router.replace('/login'); });
   }, [router]);
@@ -80,9 +80,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Logo */}
       <div className="px-5 py-6 border-b border-gray-800">
         <Link href="/dashboard" className="flex items-center gap-3 group" onClick={() => setSidebarOpen(false)}>
-          <div className="w-9 h-9 bg-red-600/20 border border-red-600/30 rounded-xl flex items-center justify-center group-hover:bg-red-600/30 transition-colors">
-            <span className="text-lg">🖱️</span>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-bengkel-mouse.png" alt="Bengkel Mouse" className="h-8 w-auto object-contain group-hover:scale-105 transition-transform" />
           <div>
             <p className="text-white font-bold text-sm leading-tight">Bengkel Mouse</p>
             <p className="text-gray-600 text-xs">Admin Panel</p>
@@ -186,7 +185,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </svg>
           </button>
           <div className="flex items-center gap-2">
-            <span>🖱️</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-bengkel-mouse.png" alt="Bengkel Mouse" className="h-6 w-auto object-contain" />
             <span className="text-white font-semibold text-sm">Bengkel Mouse</span>
           </div>
           <div className="w-9" />
