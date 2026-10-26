@@ -45,7 +45,7 @@ export default function TesterPage() {
       <div className="min-h-screen bg-[#0c0e12] flex items-center justify-center text-gray-400 font-sans text-sm">
         <div className="flex items-center gap-3">
           <div className="w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-          <span>Memeriksa status login...</span>
+          <span>Memuat Tester...</span>
         </div>
       </div>
     );
@@ -84,18 +84,9 @@ export default function TesterPage() {
               </div>
             </div>
 
-            {/* Action Buttons & User Profile */}
+            {/* Action Buttons & User Profile (Reservasi Servis and Masuk/Daftar are hidden) */}
             <div className="flex flex-wrap items-center justify-center md:justify-end gap-3">
-              <Link 
-                href="/reservasi" 
-                className="group relative px-5 py-2.5 bg-red-600 hover:bg-red-500 rounded-lg text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-red-900/40 transition-all flex items-center gap-2"
-              >
-                <Wrench size={14} className="text-white shrink-0" />
-                <span>Reservasi Servis</span>
-                <span className="group-hover:translate-x-1 transition-transform duration-300">→</span>
-              </Link>
-
-              {currentUser ? (
+              {currentUser && (
                 <>
                   <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#141824] border border-[#232b3d] text-xs text-gray-300">
                     <UserIcon size={14} className="text-red-400" />
@@ -125,14 +116,6 @@ export default function TesterPage() {
                     <span>Keluar</span>
                   </button>
                 </>
-              ) : (
-                <Link
-                  href="/login"
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-400 hover:text-red-300 text-xs font-bold transition"
-                >
-                  <UserIcon size={14} />
-                  <span>Masuk / Daftar</span>
-                </Link>
               )}
             </div>
           </div>
@@ -158,10 +141,12 @@ export default function TesterPage() {
           </div>
         </header>
 
-        <main className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+        <main className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-stretch">
           <DoubleClickTest />
           <ButtonTest />
-          <ScrollTest />
+          <div className="md:col-span-2 xl:col-span-1 h-full">
+            <ScrollTest />
+          </div>
         </main>
 
         {/* CTA Banner to Reservasi */}
