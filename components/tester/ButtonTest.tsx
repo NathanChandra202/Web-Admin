@@ -22,7 +22,11 @@ interface LogEntry {
   proportions, longer/closer side-button capsules, taller scroll housing.
 */
 
-const ButtonTest = () => {
+interface ButtonTestProps {
+  className?: string;
+}
+
+const ButtonTest: React.FC<ButtonTestProps> = ({ className = '' }) => {
   const [activeButtons, setActiveButtons] = useState<Record<number, boolean>>({});
   const [clickLog, setClickLog] = useState<LogEntry[]>([]);
   const [scrollDirection, setScrollDirection] = useState<'up' | 'down' | null>(null);
@@ -84,7 +88,7 @@ const ButtonTest = () => {
   const activeFilter = 'drop-shadow(0 0 14px rgba(96,165,250,0.85))';
 
   return (
-    <div ref={containerRef} className="bg-[#12151c] border border-white/5 rounded-2xl p-6 shadow-2xl flex flex-col h-full hover:border-white/10 transition-colors">
+    <div ref={containerRef} className={`bg-[#12151c] border border-white/5 rounded-2xl p-6 shadow-2xl flex flex-col h-full hover:border-white/10 transition-colors ${className}`}>
       {/* Header */}
       <div className="flex justify-between items-center mb-4 shrink-0">
         <div>

@@ -10,7 +10,11 @@ type ClickLog = {
   label?: string; // optional label e.g. 'L+R' for simultaneous clicks
 };
 
-const DoubleClickTest = () => {
+interface DoubleClickTestProps {
+  className?: string;
+}
+
+const DoubleClickTest: React.FC<DoubleClickTestProps> = ({ className = '' }) => {
   const [isTesting, setIsTesting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [doubleClickCount, setDoubleClickCount] = useState(0);
@@ -131,7 +135,7 @@ const DoubleClickTest = () => {
   const lastIsError = logs.length > 0 && logs[0].isError;
 
   return (
-    <div className="bg-[#12151c] border border-white/5 rounded-2xl p-6 shadow-2xl flex flex-col h-full hover:border-white/10 transition-colors relative">
+    <div className={`bg-[#12151c] border border-white/5 rounded-2xl p-6 shadow-2xl flex flex-col h-full hover:border-white/10 transition-colors relative ${className}`}>
       {/* Card Header */}
       <div className="flex justify-between items-center mb-6">
         <div>

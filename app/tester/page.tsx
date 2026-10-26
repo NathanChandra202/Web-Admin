@@ -142,9 +142,9 @@ export default function TesterPage() {
         </header>
 
         <main className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-stretch">
-          <DoubleClickTest />
-          <ButtonTest />
-          <div className="md:col-span-2 xl:col-span-1 h-full">
+          <DoubleClickTest className="order-1 md:order-2 xl:order-1" />
+          <ButtonTest className="order-2 md:order-1 xl:order-2" />
+          <div className="order-3 md:order-3 xl:order-3 md:col-span-2 xl:col-span-1 h-full">
             <ScrollTest />
           </div>
         </main>
