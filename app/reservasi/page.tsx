@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   Wrench,
   MessageCircle,
@@ -17,12 +16,10 @@ import {
   AlertCircle,
   Sparkles,
   RefreshCw,
-  ExternalLink,
   MapPin,
   Phone,
   User,
   BatteryCharging,
-  ChevronRight,
   Info,
   LogOut,
   Search,
@@ -35,6 +32,8 @@ import {
   Layers,
   Cpu,
   X,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import {
   createPublicReservation,
@@ -43,17 +42,24 @@ import {
   getBookings,
   formatRupiah,
   formatDate,
-  formatBookingId,
   STORE_WHATSAPP_DISPLAY,
   STORE_ADDRESS,
   STORE_RECEIVER,
   STORE_WHATSAPP,
+  getStoreSettings,
   type Booking,
-  type BookingStatus,
 } from '@/lib/api';
 import { isAuthenticated, isAdmin, getUser, removeToken, StoredUser } from '@/lib/auth';
 import FadeContent from '@/components/FadeContent';
-import ShinyText from '@/components/ShinyText';
+import SearchableSelect from '@/components/SearchableSelect';
+
+// Mouse connection types
+const CONNECTION_OPTIONS = [
+  'Wireless 2.4GHz (Dongle)',
+  'Kabel / Wired',
+  'Bluetooth',
+  'Tri-Mode (Kabel + Wireless 2.4G + BT)',
+];
 
 // Popular gaming mouse brands
 const POPULAR_BRANDS = [
@@ -70,6 +76,22 @@ const POPULAR_BRANDS = [
   'VortexSeries',
   'Lainnya',
 ];
+
+// Popular models per brand for quick auto-suggest
+const BRAND_MODELS: Record<string, string[]> = {
+  Logitech: ['G Pro X Superlight 2', 'G Pro X Superlight', 'G304', 'G502 X', 'G Pro Wireless', 'G703'],
+  Razer: ['Viper V3 Pro', 'DeathAdder V3 Pro', 'Viper V2 Pro', 'Viper Mini', 'Basilisk V3', 'Cobra Pro'],
+  Zowie: ['EC2-CW', 'EC1-CW', 'EC3-CW', 'FK2-C', 'ZA13-C', 'U2 Wireless'],
+  Pulsar: ['X2V2', 'X2 Mini', 'Xlite V3', 'X2H', 'X2A'],
+  SteelSeries: ['Aerox 3 Wireless', 'Aerox 5', 'Prime Wireless', 'Rival 3'],
+  'Endgame Gear': ['OP1we', 'OP1 8k', 'XM2we', 'XM1r'],
+  Lamzu: ['Atlantis OG V2', 'Atlantis Mini', 'Maya 4K', 'Thorn', 'Paro'],
+  Vaxee: ['NP-01S Wireless', 'XE Wireless', 'Outset AX Wireless'],
+  Fantech: ['Helios II Pro', 'Aria XD7', 'Thor II'],
+  Rexus: ['Dagger FX1', 'Daxa Air III', 'Daxa Air IV', 'Gladius'],
+  VortexSeries: ['Ino Pro', 'GT-8', 'Oni R1', 'Zircon X'],
+  Lainnya: ['Darmoshark M3', 'Zaopin Z1 Pro', 'Attack Shark X3', 'Scyrox V8'],
+};
 
 // Common repair & mod categories
 interface ServiceIssue {
@@ -125,6 +147,7 @@ const SERVICE_ISSUES: ServiceIssue[] = [
     category: 'Perawatan Total',
     tag: 'Ultrasonic & Stem Lube',
     desc: 'Pembersihan total residu minyak tangan, debu, kotoran dalam shell, lube wheel & spring switch.',
+    popular: true,
   },
   {
     id: 'skates_feet',
@@ -150,27 +173,27 @@ const SERVICE_ISSUES: ServiceIssue[] = [
 ];
 
 function renderIssueIcon(id: string, isSelected: boolean) {
-  const iconClass = isSelected ? 'text-white' : 'text-gray-400 group-hover:text-red-400 transition-colors';
+  const iconClass = isSelected ? 'text-red-400' : 'text-gray-400 group-hover:text-red-400 transition-colors';
   switch (id) {
     case 'double_click':
-      return <MousePointer2 size={18} className={iconClass} />;
+      return <MousePointer2 size={16} className={iconClass} />;
     case 'scroll_wheel':
-      return <RotateCw size={18} className={iconClass} />;
+      return <RotateCw size={16} className={iconClass} />;
     case 'sensor_issue':
-      return <Crosshair size={18} className={iconClass} />;
+      return <Crosshair size={16} className={iconClass} />;
     case 'cable_paracord':
-      return <Cable size={18} className={iconClass} />;
+      return <Cable size={16} className={iconClass} />;
     case 'battery_wireless':
-      return <BatteryCharging size={18} className={iconClass} />;
+      return <BatteryCharging size={16} className={iconClass} />;
     case 'deep_cleaning':
-      return <Sparkles size={18} className={iconClass} />;
+      return <Sparkles size={16} className={iconClass} />;
     case 'skates_feet':
-      return <Layers size={18} className={iconClass} />;
+      return <Layers size={16} className={iconClass} />;
     case 'custom_mod':
-      return <Cpu size={18} className={iconClass} />;
+      return <Cpu size={16} className={iconClass} />;
     case 'other':
     default:
-      return <Wrench size={18} className={iconClass} />;
+      return <Wrench size={16} className={iconClass} />;
   }
 }
 
@@ -259,7 +282,6 @@ const TIMELINE_STEPS = [
 ];
 
 export default function ReservasiPage() {
-  const router = useRouter();
   const [currentUser, setCurrentUser] = useState<StoredUser | null>(null);
   const [userIsAdmin, setUserIsAdmin] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -271,12 +293,18 @@ export default function ReservasiPage() {
   const [selectedBrand, setSelectedBrand] = useState('Logitech');
   const [customBrand, setCustomBrand] = useState('');
   const [modelName, setModelName] = useState('');
-  const [mouseType, setMouseType] = useState<'wireless' | 'wired'>('wireless');
+  const [connectionType, setConnectionType] = useState('Wireless 2.4GHz (Dongle)');
   const [selectedIssues, setSelectedIssues] = useState<string[]>(['double_click']);
   const [details, setDetails] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+
+  // Dropdown states for uncluttered UI
+  const [isIssueDropdownOpen, setIsIssueDropdownOpen] = useState(false);
+  const [issueSearch, setIssueSearch] = useState('');
+  const [showAllDetails, setShowAllDetails] = useState(false);
+  const issueDropdownRef = useRef<HTMLDivElement>(null);
 
   // Submit & Reservation state
   const [submitting, setSubmitting] = useState(false);
@@ -295,8 +323,52 @@ export default function ReservasiPage() {
   const [userOrders, setUserOrders] = useState<Booking[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
+  // Dynamic workshop & catalog settings (loaded from admin configuration)
+  const [storeWhatsApp, setStoreWhatsApp] = useState(STORE_WHATSAPP);
+  const [storeWhatsAppDisplay, setStoreWhatsAppDisplay] = useState(STORE_WHATSAPP_DISPLAY);
+  const [storeAddress, setStoreAddress] = useState(STORE_ADDRESS);
+  const [storeReceiver, setStoreReceiver] = useState(STORE_RECEIVER);
+  const [brandsList, setBrandsList] = useState<string[]>(POPULAR_BRANDS);
+  const [catalogModels, setCatalogModels] = useState<Record<string, string[]>>(BRAND_MODELS);
+
   // Guest notice modal
   const [showGuestNoticeModal, setShowGuestNoticeModal] = useState(false);
+
+  // Load dynamic store settings & catalog from admin configuration
+  useEffect(() => {
+    getStoreSettings()
+      .then((settings) => {
+        if (settings) {
+          if (settings.whatsapp) setStoreWhatsApp(settings.whatsapp);
+          if (settings.whatsappDisplay) setStoreWhatsAppDisplay(settings.whatsappDisplay);
+          if (settings.address) setStoreAddress(settings.address);
+          if (settings.receiverName) setStoreReceiver(settings.receiverName);
+          if (settings.brands && settings.brands.length > 0) {
+            setBrandsList(settings.brands);
+          }
+          if (settings.brandModels && Object.keys(settings.brandModels).length > 0) {
+            setCatalogModels((prev) => ({ ...prev, ...settings.brandModels }));
+          }
+        }
+      })
+      .catch((err) => console.warn('Could not load store settings:', err));
+  }, []);
+
+  // Close issue dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        issueDropdownRef.current &&
+        !issueDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsIssueDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated()) {
@@ -307,7 +379,6 @@ export default function ReservasiPage() {
         if (user.name) setName(user.name);
         if (user.phone) setPhone(user.phone);
       }
-      // Load user's bookings from database
       setLoadingOrders(true);
       getBookings()
         .then((data) => {
@@ -341,6 +412,21 @@ export default function ReservasiPage() {
     );
   }
 
+  function handleBrandChange(brand: string) {
+    setSelectedBrand(brand);
+    if (brand !== 'Lainnya') {
+      setCustomBrand('');
+    }
+    const brandList = (catalogModels && catalogModels[brand]) ? catalogModels[brand] : [];
+    if (!brandList.includes(modelName)) {
+      setModelName('');
+    }
+  }
+
+  const availableModels = selectedBrand === 'Lainnya'
+    ? (catalogModels['Lainnya'] || [])
+    : (catalogModels[selectedBrand] || []);
+
   const effectiveBrand = selectedBrand === 'Lainnya' ? (customBrand || 'Custom Brand') : selectedBrand;
   const fullMouseName = `${effectiveBrand} ${modelName}`.trim() || 'Mouse Gaming';
 
@@ -348,16 +434,27 @@ export default function ReservasiPage() {
     (id) => SERVICE_ISSUES.find((s) => s.id === id)?.name || id
   );
 
+  const filteredIssues = SERVICE_ISSUES.filter((issue) => {
+    if (!issueSearch.trim()) return true;
+    const q = issueSearch.toLowerCase();
+    return (
+      issue.name.toLowerCase().includes(q) ||
+      issue.category.toLowerCase().includes(q) ||
+      issue.tag.toLowerCase().includes(q) ||
+      issue.desc.toLowerCase().includes(q)
+    );
+  });
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
 
     if (!modelName.trim()) {
-      setError('Silakan isi seri / model mouse Anda (misal: G Pro X Superlight, Viper V2, dsb.)');
+      setError('Silakan isi seri / model mouse Anda (misal: G Pro X Superlight, Viper V3 Pro, dsb.)');
       return;
     }
     if (selectedIssues.length === 0) {
-      setError('Pilih minimal satu keluhan atau kebutuhan servis mouse Anda.');
+      setError('Pilih minimal satu keluhan atau kebutuhan servis mouse Anda pada dropdown.');
       return;
     }
     if (!name.trim()) {
@@ -372,7 +469,7 @@ export default function ReservasiPage() {
     setSubmitting(true);
     try {
       const issueString = selectedIssueNames.join(', ');
-      const detailedNotes = `[Tipe: ${mouseType.toUpperCase()}] ${details}`.trim();
+      const detailedNotes = `[Koneksi: ${connectionType}] ${details}`.trim();
 
       const booking = await createPublicReservation({
         name: name.trim(),
@@ -385,13 +482,11 @@ export default function ReservasiPage() {
 
       setCompletedBooking(booking);
 
-      // If user is logged in, attach to user orders
       if (currentUser) {
         setUserOrders((prev) => [booking, ...prev]);
         setTrackedOrder(booking);
       }
 
-      // Auto scroll to top
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Terjadi kendala saat membuat reservasi.');
@@ -401,7 +496,7 @@ export default function ReservasiPage() {
   }
 
   function handleCopyAddress() {
-    const text = `Penerima: ${STORE_RECEIVER}\nAlamat: ${STORE_ADDRESS}\nNo. HP: ${STORE_WHATSAPP_DISPLAY}`;
+    const text = `Penerima: ${storeReceiver}\nAlamat: ${storeAddress}\nNo. HP: ${storeWhatsAppDisplay}`;
     navigator.clipboard.writeText(text);
     setCopiedAddress(true);
     setTimeout(() => setCopiedAddress(false), 2500);
@@ -452,7 +547,7 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
       const updated = await trackBookingByOrderId(trackedOrder.id);
       setTrackedOrder(updated);
       setUserOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
-    } catch (_) {
+    } catch {
       // ignore
     } finally {
       setTrackingLoading(false);
@@ -471,30 +566,30 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
   }
 
   return (
-    <div className="min-h-screen bg-[#090b0e] text-gray-100 selection:bg-red-600 selection:text-white font-sans">
-      {/* Top Navigation */}
-      <header className="sticky top-0 z-40 bg-[#090b0e]/85 backdrop-blur-md border-b border-[#1f2633]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
-          <Link href="/reservasi" className="flex items-center gap-3.5 group">
+    <div className="min-h-screen bg-[#090b0e] text-gray-100 selection:bg-red-600 selection:text-white font-sans antialiased">
+      {/* Top Navigation - Ultra Responsive */}
+      <header className="sticky top-0 z-40 bg-[#090b0e]/90 backdrop-blur-md border-b border-[#1f2633]">
+        <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between gap-2">
+          {/* Logo Brand */}
+          <Link href="/reservasi" className="flex items-center gap-2.5 sm:gap-3.5 group shrink-0 min-w-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/logo-bengkel-mouse.png"
               alt="Bengkel Mouse Logo"
-              className="h-10 w-auto object-contain drop-shadow-md group-hover:scale-105 transition-transform"
+              className="h-8 sm:h-10 w-auto object-contain drop-shadow-md group-hover:scale-105 transition-transform"
             />
-            <div className="border-l border-gray-800 pl-3">
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-white text-base tracking-tight">Bengkel Mouse</span>
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-950/80 text-red-400 border border-red-800/50 uppercase tracking-wider">
+            <div className="border-l border-gray-800 pl-2 sm:pl-3 flex flex-col justify-center">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="font-extrabold text-white text-sm sm:text-base tracking-tight truncate">
+                  Bengkel Mouse
+                </span>
+                <span className="px-1.5 py-0.2 rounded text-[9px] sm:text-[10px] font-bold bg-red-950/80 text-red-400 border border-red-800/50 uppercase tracking-wider shrink-0">
                   Workshop
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+              <div className="hidden sm:flex items-center gap-1 text-[11px] text-gray-500">
                 <span>Powered by</span>
-                <span
-                  className="font-bold tracking-wider uppercase text-xs"
-                  style={{ color: '#C8991A' }}
-                >
+                <span className="font-bold tracking-wider uppercase text-xs" style={{ color: '#C8991A' }}>
                   26 Computer
                 </span>
               </div>
@@ -502,14 +597,16 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
           </Link>
 
           {/* Quick links & Auth */}
-          <div className="flex items-center gap-3">
-            <Link
-              href="/tester"
-              className="hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#141822] hover:bg-[#1a202e] border border-[#273042] text-xs font-semibold text-gray-300 hover:text-white transition"
-            >
-              <Zap size={14} className="text-amber-400" />
-              <span>Mouse Tester Online</span>
-            </Link>
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            {userIsAdmin && (
+              <Link
+                href="/tester"
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141822] hover:bg-[#1a202e] border border-[#273248] text-xs font-semibold text-gray-300 hover:text-white transition"
+              >
+                <Zap size={13} className="text-amber-400" />
+                <span>Mouse Tester</span>
+              </Link>
+            )}
 
             {/* Status Tracker Trigger */}
             {currentUser ? (
@@ -518,16 +615,17 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                   setActiveTab('status');
                   setCompletedBooking(null);
                 }}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition ${
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg border text-xs font-semibold transition ${
                   activeTab === 'status'
                     ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-900/30'
                     : 'bg-[#141822] hover:bg-[#1a202e] border-[#273042] text-gray-300 hover:text-white'
                 }`}
               >
-                <Clock size={14} className={activeTab === 'status' ? 'text-white' : 'text-blue-400'} />
-                <span>Pantau Status Order</span>
+                <Clock size={13} className={activeTab === 'status' ? 'text-white' : 'text-blue-400'} />
+                <span className="hidden sm:inline">Pantau Status</span>
+                <span className="sm:hidden">Status</span>
                 {userOrders.length > 0 && (
-                  <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-blue-950 text-blue-300 border border-blue-800">
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-blue-950 text-blue-300 border border-blue-800">
                     {userOrders.length}
                   </span>
                 )}
@@ -535,30 +633,30 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
             ) : (
               <button
                 onClick={() => setShowGuestNoticeModal(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#141822] hover:bg-[#1a202e] border border-[#273042] text-xs font-medium text-gray-300 hover:text-white transition"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-[#141822] hover:bg-[#1a202e] border border-[#273042] text-xs font-medium text-gray-300 hover:text-white transition"
                 title="Cek info pemantauan status untuk tamu"
               >
-                <Clock size={14} className="text-amber-400" />
-                <span>Cek Status</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-gray-800 text-gray-400">WA</span>
+                <Clock size={13} className="text-amber-400" />
+                <span className="hidden sm:inline">Cek Status</span>
+                <span className="text-[10px] px-1 py-0.2 rounded bg-gray-800 text-gray-400">WA</span>
               </button>
             )}
 
             <a
-              href={`https://wa.me/${STORE_WHATSAPP}`}
+              href={`https://wa.me/${storeWhatsApp}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden md:flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 hover:text-emerald-200 text-xs font-semibold transition"
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 hover:text-emerald-200 text-xs font-semibold transition"
             >
-              <MessageCircle size={14} className="text-emerald-400 fill-emerald-400/20" />
-              <span>{STORE_WHATSAPP_DISPLAY}</span>
+              <MessageCircle size={13} className="text-emerald-400 fill-emerald-400/20" />
+              <span>{storeWhatsAppDisplay}</span>
             </a>
 
             {currentUser ? (
               <>
-                <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#141822] border border-[#273042] text-xs text-gray-300">
-                  <User size={13} className="text-red-400" />
-                  <span className="font-semibold text-white truncate max-w-[120px]">
+                <div className="hidden xl:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[#141822] border border-[#273042] text-xs text-gray-300">
+                  <User size={12} className="text-red-400" />
+                  <span className="font-semibold text-white truncate max-w-[100px]">
                     {currentUser.name || currentUser.email}
                   </span>
                   {userIsAdmin && (
@@ -571,15 +669,15 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                 {userIsAdmin && (
                   <Link
                     href="/dashboard"
-                    className="px-3 py-1.5 rounded-lg bg-[#141822] hover:bg-amber-950/30 border border-amber-500/30 text-amber-400 text-xs font-semibold transition"
+                    className="hidden sm:flex px-2.5 py-1.5 rounded-lg bg-[#141822] hover:bg-amber-950/30 border border-amber-500/30 text-amber-400 text-xs font-semibold transition"
                   >
-                    Dashboard Admin
+                    Admin
                   </Link>
                 )}
 
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-1 px-2.5 py-1.5 bg-[#141822] hover:bg-red-950/30 border border-[#273042] hover:border-red-600/40 text-gray-400 hover:text-red-400 rounded-lg text-xs font-medium transition"
+                  className="flex items-center gap-1 p-1.5 sm:px-2.5 sm:py-1.5 bg-[#141822] hover:bg-red-950/30 border border-[#273042] hover:border-red-600/40 text-gray-400 hover:text-red-400 rounded-lg text-xs font-medium transition"
                   title="Keluar dari akun"
                 >
                   <LogOut size={13} />
@@ -589,10 +687,10 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
             ) : (
               <Link
                 href="/login"
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-400 hover:text-red-300 text-xs font-bold transition"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-400 hover:text-red-300 text-xs font-bold transition"
               >
-                <User size={14} />
-                <span>Masuk / Daftar</span>
+                <User size={13} />
+                <span>Masuk</span>
               </Link>
             )}
           </div>
@@ -600,65 +698,65 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
       </header>
 
       {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+      <main className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-6 sm:py-10">
         {/* TAB TOGGLE / GUEST BANNER */}
         {currentUser ? (
-          <div className="flex items-center gap-2 mb-8 bg-[#111622] p-1.5 rounded-2xl border border-[#232c3f] w-fit">
+          <div className="w-full sm:w-fit mb-6 sm:mb-8 bg-[#111622] p-1 sm:p-1.5 rounded-2xl border border-[#232c3f] grid grid-cols-2 sm:flex items-center gap-1 sm:gap-2">
             <button
               onClick={() => {
                 setActiveTab('form');
                 setCompletedBooking(null);
               }}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+              className={`px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 ${
                 activeTab === 'form' && !completedBooking
                   ? 'bg-red-600 text-white shadow-lg shadow-red-900/40'
                   : 'text-gray-400 hover:text-white'
               }`}
             >
-              <Wrench size={14} />
-              <span>Formulir Reservasi Servis</span>
+              <Wrench size={13} />
+              <span className="truncate">Form Reservasi</span>
             </button>
             <button
               onClick={() => {
                 setActiveTab('status');
                 setCompletedBooking(null);
               }}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+              className={`px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 ${
                 activeTab === 'status'
                   ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40'
                   : 'text-gray-400 hover:text-white'
               }`}
             >
-              <Clock size={14} />
-              <span>Pantau Status Order (Realtime)</span>
+              <Clock size={13} />
+              <span className="truncate">Pantau Order</span>
               {userOrders.length > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-blue-950 text-blue-300 font-mono border border-blue-800">
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-blue-950 text-blue-300 font-mono border border-blue-800">
                   {userOrders.length}
                 </span>
               )}
             </button>
           </div>
         ) : (
-          <div className="mb-8 p-4 rounded-2xl bg-[#121622] border border-[#232d40] flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="mb-6 sm:mb-8 p-3.5 sm:p-4 rounded-2xl bg-[#121622] border border-[#232d40] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
-                <User size={18} />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                <User size={16} />
               </div>
               <div>
                 <p className="text-xs font-bold text-white flex items-center gap-2">
                   <span>Mode Tamu (Bisa Reservasi Tanpa Login)</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                  <span className="px-1.5 py-0.2 rounded-full text-[9px] font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">
                     Bebas Akses
                   </span>
                 </p>
                 <p className="text-[11px] text-gray-400 mt-0.5">
-                  Anda dapat membuat reservasi langsung tanpa login. Pemantauan &amp; progres servis ditanyakan via WhatsApp teknisi kami.
+                  Reservasi instan tanpa akun. Tanya progres servis langsung lewat WhatsApp teknisi kami.
                 </p>
               </div>
             </div>
             <Link
               href="/login"
-              className="shrink-0 px-4 py-2 rounded-xl bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-400 hover:text-red-300 text-xs font-bold transition flex items-center gap-1.5"
+              className="w-full sm:w-auto shrink-0 px-3.5 py-2 rounded-xl bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-400 hover:text-red-300 text-xs font-bold transition flex items-center justify-center gap-1.5"
             >
               <span>Login untuk Pantau via Web</span>
               <ArrowRight size={13} />
@@ -670,32 +768,31 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
         {completedBooking ? (
           <FadeContent duration={0.5} blur>
             <div className="max-w-3xl mx-auto">
-              <div className="bg-gradient-to-b from-[#131722] to-[#0d1017] rounded-3xl border border-emerald-500/40 p-6 sm:p-10 shadow-2xl shadow-emerald-950/20 relative overflow-hidden">
-                {/* Glow accent */}
+              <div className="bg-gradient-to-b from-[#131722] to-[#0d1017] rounded-3xl border border-emerald-500/40 p-5 sm:p-10 shadow-2xl shadow-emerald-950/20 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
                 <div className="absolute -bottom-10 -left-10 w-80 h-80 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
 
                 {/* Success Header */}
-                <div className="text-center mb-8 relative z-10">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
-                    <CheckCircle2 size={36} className="text-emerald-400" />
+                <div className="text-center mb-6 sm:mb-8 relative z-10">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
+                    <CheckCircle2 size={32} className="text-emerald-400" />
                   </div>
-                  <span className="inline-block px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 mb-2">
+                  <span className="inline-block px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold tracking-wider uppercase bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 mb-2">
                     {currentUser ? 'Reservasi Akun Terdaftar Berhasil' : 'Reservasi Mode Tamu Berhasil'}
                   </span>
                   <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
                     Reservasi Servis Telah Masuk!
                   </h1>
-                  <p className="text-gray-400 text-sm mt-2 max-w-lg mx-auto">
+                  <p className="text-gray-400 text-xs sm:text-sm mt-2 max-w-lg mx-auto">
                     Data reservasi mouse Anda telah dicatat. Konsultasikan rincian sparepart dan estimasi harga langsung via WhatsApp dengan teknisi kami.
                   </p>
                 </div>
 
                 {/* Reservation Status & Order ID Box */}
-                <div className="bg-[#181d2a] rounded-2xl border border-[#2b354a] p-5 sm:p-6 mb-8 relative z-10">
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-gray-700/60">
+                <div className="bg-[#181d2a] rounded-2xl border border-[#2b354a] p-4 sm:p-6 mb-6 sm:mb-8 relative z-10">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-gray-700/60">
                     <div>
-                      <p className="text-xs uppercase tracking-wider text-gray-400">
+                      <p className="text-[11px] uppercase tracking-wider text-gray-400">
                         {currentUser ? 'Order ID Anda' : 'Status Reservasi'}
                       </p>
                       <p className="text-xl sm:text-2xl font-mono font-bold text-white mt-0.5">
@@ -707,15 +804,15 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-950/50 text-amber-400 border border-amber-800/50 flex items-center gap-1.5">
-                        <Clock size={13} />
+                      <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-950/50 text-amber-400 border border-amber-800/50 flex items-center gap-1.5">
+                        <Clock size={12} />
                         <span>Menunggu Konsultasi WA</span>
                       </span>
                     </div>
                   </div>
 
                   {/* Summary Rows */}
-                  <div className="py-4 space-y-3 text-sm border-b border-gray-700/60">
+                  <div className="py-4 space-y-2.5 text-xs sm:text-sm border-b border-gray-700/60">
                     <div className="flex justify-between items-start gap-4">
                       <span className="text-gray-400 shrink-0">Pemilik Mouse</span>
                       <span className="text-white font-medium text-right">
@@ -736,34 +833,29 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                         <span className="text-gray-300 text-right max-w-md">{details}</span>
                       </div>
                     )}
-                    <div className="flex justify-between items-start gap-4">
+                    <div className="flex justify-between items-center gap-4">
                       <span className="text-gray-400 shrink-0">Biaya Booking Web</span>
                       <span className="text-emerald-400 font-bold text-right">Rp 0 (GRATIS)</span>
                     </div>
                     <div className="flex justify-between items-start gap-4">
                       <span className="text-gray-400 shrink-0">Estimasi Biaya Servis</span>
                       <span className="text-amber-400 font-medium text-right">
-                        Dikonfirmasi &amp; Disepakati via WhatsApp
+                        Dikonfirmasi via WhatsApp
                       </span>
                     </div>
                   </div>
 
                   {/* Next Step Highlight */}
-                  <div className="pt-4 flex items-start gap-3 text-xs text-gray-300">
-                    <Info size={16} className="text-blue-400 shrink-0 mt-0.5" />
+                  <div className="pt-4 flex items-start gap-2.5 text-xs text-gray-300">
+                    <Info size={15} className="text-blue-400 shrink-0 mt-0.5" />
                     <p>
                       <strong>Langkah selanjutnya:</strong> Tekan tombol WhatsApp di bawah. Rincian keluhan mouse Anda sudah siap didiskusikan langsung dengan teknisi kami.
-                      {!currentUser && (
-                        <span className="block text-gray-400 mt-1">
-                          *Sebagai Tamu (tanpa login), pembaruan status pengerjaan mouse diinfokan langsung lewat chat WA.
-                        </span>
-                      )}
                     </p>
                   </div>
                 </div>
 
                 {/* Primary WhatsApp Action & Tracking Link */}
-                <div className="space-y-3 mb-8 relative z-10">
+                <div className="space-y-3 mb-6 sm:mb-8 relative z-10">
                   <a
                     href={buildWhatsAppConsultUrl({
                       bookingId: completedBooking.id,
@@ -773,14 +865,15 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                       mouseName: completedBooking.mouseName,
                       issue: completedBooking.issue,
                       details: details,
+                      storeWhatsapp: storeWhatsApp,
                     })}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-bold text-base sm:text-lg flex items-center justify-center gap-3 shadow-lg shadow-emerald-900/40 hover:shadow-emerald-700/50 hover:scale-[1.01] active:scale-[0.99] transition duration-200"
+                    className="w-full py-3.5 sm:py-4 px-5 sm:px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-lg shadow-emerald-900/40 hover:scale-[1.01] active:scale-[0.99] transition duration-200"
                   >
-                    <MessageCircle size={24} className="fill-white" />
+                    <MessageCircle size={20} className="fill-white" />
                     <span>Konsultasi Harga via WhatsApp Sekarang</span>
-                    <ArrowRight size={20} />
+                    <ArrowRight size={18} />
                   </a>
 
                   {currentUser && (
@@ -791,18 +884,18 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                         setCompletedBooking(null);
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
-                      className="w-full py-3.5 px-6 rounded-2xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 font-bold text-sm flex items-center justify-center gap-2 transition"
+                      className="w-full py-3 px-5 rounded-2xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition"
                     >
-                      <Clock size={16} className="text-blue-400" />
+                      <Clock size={15} className="text-blue-400" />
                       <span>Pantau Status Order di Website (Realtime)</span>
-                      <ArrowRight size={16} />
+                      <ArrowRight size={15} />
                     </button>
                   )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                     <button
                       onClick={() => handleCopyReservationTemplate(completedBooking)}
-                      className="py-3 px-4 rounded-xl bg-[#181d2a] hover:bg-[#202738] border border-[#2b354a] text-gray-200 text-xs font-semibold flex items-center justify-center gap-2 transition"
+                      className="py-2.5 px-4 rounded-xl bg-[#181d2a] hover:bg-[#202738] border border-[#2b354a] text-gray-200 text-xs font-semibold flex items-center justify-center gap-2 transition"
                     >
                       {copiedTemplate ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
                       <span>{copiedTemplate ? 'Format Chat Tersalin!' : 'Salin Format Chat WA'}</span>
@@ -810,7 +903,7 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
 
                     <button
                       onClick={handleCopyAddress}
-                      className="py-3 px-4 rounded-xl bg-[#181d2a] hover:bg-[#202738] border border-[#2b354a] text-gray-200 text-xs font-semibold flex items-center justify-center gap-2 transition"
+                      className="py-2.5 px-4 rounded-xl bg-[#181d2a] hover:bg-[#202738] border border-[#2b354a] text-gray-200 text-xs font-semibold flex items-center justify-center gap-2 transition"
                     >
                       {copiedAddress ? <Check size={14} className="text-emerald-400" /> : <Package size={14} />}
                       <span>{copiedAddress ? 'Alamat Workshop Tersalin!' : 'Salin Alamat Kirim Paket'}</span>
@@ -819,14 +912,14 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                 </div>
 
                 {/* Workshop Address Card */}
-                <div className="bg-[#10141e] rounded-2xl border border-gray-800 p-5 text-xs text-gray-400 space-y-2 relative z-10">
+                <div className="bg-[#10141e] rounded-2xl border border-gray-800 p-4 sm:p-5 text-xs text-gray-400 space-y-2 relative z-10">
                   <div className="flex items-center gap-2 text-white font-semibold">
-                    <MapPin size={14} className="text-red-500" />
+                    <MapPin size={14} className="text-red-500 shrink-0" />
                     <span>Alamat Pengiriman Unit Mouse (Setelah Deal via WA):</span>
                   </div>
                   <p className="text-gray-300 leading-relaxed pl-5 font-mono text-[11px]">
-                    {STORE_RECEIVER} ({STORE_WHATSAPP_DISPLAY})<br />
-                    {STORE_ADDRESS}
+                    {storeReceiver} ({storeWhatsAppDisplay})<br />
+                    {storeAddress}
                   </p>
                   <p className="text-[11px] text-gray-500 pl-5">
                     *Harap sertakan secarik kertas di dalam paket bertuliskan Nama &amp; No. WhatsApp Anda.
@@ -834,7 +927,7 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                 </div>
 
                 {/* Reset button */}
-                <div className="mt-8 text-center">
+                <div className="mt-6 text-center">
                   <button
                     onClick={() => {
                       setCompletedBooking(null);
@@ -852,48 +945,38 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
         ) : activeTab === 'status' && currentUser ? (
           /* 2. DYNAMIC REALTIME STATUS TRACKING VIEW (LOGGED-IN USERS) */
           <FadeContent duration={0.4} blur>
-            <div className="max-w-4xl mx-auto space-y-8">
+            <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
               {/* Header Tracker */}
-              <div className="text-center md:text-left flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#1b212d] pb-6">
+              <div className="text-center sm:text-left flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[#1b212d] pb-6">
                 <div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-600/10 text-blue-400 border border-blue-500/20 mb-2">
-                    <Clock size={12} className="text-blue-400" />
-                    <span>Pantau Status Realtime dari Admin</span>
-                  </div>
                   <h1 className="text-2xl sm:text-3xl font-black text-white">
                     Status Pengerjaan Mouse Anda
                   </h1>
                   <p className="text-gray-400 text-xs sm:text-sm mt-1">
-                    Status diperbarui secara dinamis mengikuti setiap tahapan yang diupdate oleh teknisi kami di workshop.
+                    Status diperbarui dinamis mengikuti setiap tahapan yang diupdate teknisi kami di workshop.
                   </p>
-                </div>
-
-                {/* Live Indicator */}
-                <div className="flex items-center gap-2 bg-[#121622] px-3.5 py-1.5 rounded-xl border border-[#232c3f] text-xs self-start md:self-auto">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-gray-300 font-medium">Database Terhubung</span>
                 </div>
               </div>
 
               {/* Search Order ID Form */}
-              <div className="bg-[#10141d] rounded-2xl border border-[#202738] p-5 shadow-xl">
-                <form onSubmit={(e) => handleTrackOrder(e)} className="flex flex-col sm:flex-row gap-3">
+              <div className="bg-[#10141d] rounded-2xl border border-[#202738] p-4 sm:p-5 shadow-xl">
+                <form onSubmit={(e) => handleTrackOrder(e)} className="flex flex-col sm:flex-row gap-2.5 sm:gap-3">
                   <div className="relative flex-1">
-                    <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                    <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
                     <input
                       type="text"
                       value={searchOrderId}
                       onChange={(e) => setSearchOrderId(e.target.value)}
-                      placeholder="Masukkan Order ID Anda (contoh: BM-9A82F atau ID Booking)"
-                      className="w-full pl-10 pr-4 py-3 bg-[#171c28] border border-[#273248] rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition"
+                      placeholder="Masukkan Order ID Anda (contoh: BM-9A82F)"
+                      className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-[#171c28] border border-[#273248] rounded-xl text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition"
                     />
                   </div>
                   <button
                     type="submit"
                     disabled={trackingLoading || !searchOrderId.trim()}
-                    className="px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition shrink-0"
+                    className="px-5 py-2.5 sm:py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition shrink-0"
                   >
-                    {trackingLoading ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
+                    {trackingLoading ? <RefreshCw size={13} className="animate-spin" /> : <Search size={13} />}
                     <span>Lacak Order ID</span>
                   </button>
                 </form>
@@ -910,10 +993,10 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
               {userOrders.length > 0 && (
                 <div>
                   <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-2">
-                    <span>Order Servis Tersimpan di Akun Anda ({userOrders.length})</span>
+                    <span>Order Servis Tersimpan ({userOrders.length})</span>
                     {loadingOrders && <RefreshCw size={12} className="animate-spin text-gray-500" />}
                   </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-3">
                     {userOrders.map((order) => {
                       const isSelected = trackedOrder?.id === order.id;
                       const statusDef = ORDER_STATUS_MAP[order.status] || ORDER_STATUS_MAP.PENDING;
@@ -951,9 +1034,9 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
 
               {/* Active Tracked Order Details Card */}
               {trackedOrder ? (
-                <div className="bg-gradient-to-b from-[#131825] to-[#0d1018] rounded-3xl border border-[#242f44] p-6 sm:p-8 shadow-2xl relative overflow-hidden space-y-6">
+                <div className="bg-gradient-to-b from-[#131825] to-[#0d1018] rounded-3xl border border-[#242f44] p-5 sm:p-8 shadow-2xl relative overflow-hidden space-y-6">
                   {/* Card top bar */}
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-gray-800">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-gray-800">
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs uppercase tracking-wider text-gray-400">Order ID:</span>
@@ -964,7 +1047,7 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                         </span>
                       </div>
                       <div className="flex items-center gap-2 text-sm font-semibold text-gray-300 mt-1">
-                        <Mouse size={15} className="text-red-400 shrink-0" />
+                        <Mouse size={14} className="text-red-400 shrink-0" />
                         <span>{trackedOrder.mouseName}</span>
                       </div>
                       <p className="text-xs text-gray-500 mt-0.5">
@@ -976,18 +1059,16 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                       <button
                         onClick={handleRefreshTrackedOrder}
                         disabled={trackingLoading}
-                        className="flex items-center gap-1.5 px-3 py-2 bg-[#171d2b] hover:bg-[#1f2638] border border-[#2b354a] text-gray-300 hover:text-white rounded-xl text-xs font-medium transition"
-                        title="Segarkan data status dari database"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#171d2b] hover:bg-[#1f2638] border border-[#2b354a] text-gray-300 hover:text-white rounded-xl text-xs font-medium transition"
                       >
-                        <RefreshCw size={13} className={trackingLoading ? 'animate-spin text-blue-400' : ''} />
+                        <RefreshCw size={12} className={trackingLoading ? 'animate-spin text-blue-400' : ''} />
                         <span>Segarkan</span>
                       </button>
 
-                      {/* Status Badge */}
                       {(() => {
                         const statusDef = ORDER_STATUS_MAP[trackedOrder.status] || ORDER_STATUS_MAP.PENDING;
                         return (
-                          <div className={`px-3.5 py-2 rounded-xl border text-xs font-bold flex items-center gap-2 ${statusDef.badge}`}>
+                          <div className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-2 ${statusDef.badge}`}>
                             <span className="w-2 h-2 rounded-full bg-current animate-ping" />
                             <span>{statusDef.label}</span>
                           </div>
@@ -996,9 +1077,9 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                     </div>
                   </div>
 
-                  {/* Dynamic Progress Stepper */}
+                  {/* Horizontal Scroll Stepper on Mobile, Grid on Tablet/Desktop */}
                   <div>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-4">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">
                       Tahapan Pengerjaan Servis:
                     </h4>
                     {(() => {
@@ -1008,14 +1089,14 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                       if (isCancelled) {
                         return (
                           <div className="p-4 bg-red-950/40 border border-red-800 rounded-2xl text-red-300 text-xs flex items-center gap-3">
-                            <AlertCircle size={20} className="shrink-0 text-red-400" />
+                            <AlertCircle size={18} className="shrink-0 text-red-400" />
                             <span>Pesanan servis ini telah dibatalkan oleh admin atau pelanggan.</span>
                           </div>
                         );
                       }
 
                       return (
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
+                        <div className="flex sm:grid sm:grid-cols-5 gap-2 overflow-x-auto pb-2 sm:pb-0">
                           {TIMELINE_STEPS.map((s) => {
                             const isPast = s.step < currentStep;
                             const isCurrent = s.step === currentStep;
@@ -1023,7 +1104,7 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                             return (
                               <div
                                 key={s.step}
-                                className={`p-3 rounded-2xl border transition ${
+                                className={`p-2.5 sm:p-3 rounded-2xl border transition min-w-[120px] sm:min-w-0 flex-1 shrink-0 ${
                                   isCurrent
                                     ? 'bg-blue-950/60 border-blue-500 text-white shadow-lg shadow-blue-950/40'
                                     : isPast
@@ -1031,10 +1112,10 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                                     : 'bg-[#10141d] border-gray-800/80 text-gray-500'
                                 }`}
                               >
-                                <div className="flex items-center justify-between mb-1.5">
-                                  <span className="text-[10px] font-bold uppercase font-mono">Tahap {s.step}</span>
-                                  {isPast && <Check size={14} className="text-emerald-400" />}
-                                  {isCurrent && <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />}
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-[9px] font-bold uppercase font-mono">Tahap {s.step}</span>
+                                  {isPast && <Check size={12} className="text-emerald-400" />}
+                                  {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />}
                                 </div>
                                 <p className={`text-xs font-bold ${isCurrent ? 'text-white' : isPast ? 'text-gray-200' : 'text-gray-500'}`}>
                                   {s.title}
@@ -1052,8 +1133,8 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                   {(() => {
                     const statusDef = ORDER_STATUS_MAP[trackedOrder.status] || ORDER_STATUS_MAP.PENDING;
                     return (
-                      <div className="bg-[#111624] p-4 rounded-2xl border border-[#212b3e] flex items-start gap-3">
-                        <Info size={18} className="text-blue-400 shrink-0 mt-0.5" />
+                      <div className="bg-[#111624] p-3.5 sm:p-4 rounded-2xl border border-[#212b3e] flex items-start gap-2.5">
+                        <Info size={16} className="text-blue-400 shrink-0 mt-0.5" />
                         <div>
                           <p className="text-xs font-bold text-white mb-0.5">{statusDef.label}</p>
                           <p className="text-xs text-gray-300 leading-relaxed">{statusDef.desc}</p>
@@ -1063,31 +1144,28 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                   })()}
 
                   {/* Summary & Replaced Parts Details */}
-                  <div className="bg-[#10141d] rounded-2xl border border-[#202738] p-5 space-y-3 text-xs">
-                    <div className="flex justify-between items-start">
-                      <span className="text-gray-400">Keluhan Kerusakan:</span>
+                  <div className="bg-[#10141d] rounded-2xl border border-[#202738] p-4 sm:p-5 space-y-3 text-xs">
+                    <div className="flex justify-between items-start gap-3">
+                      <span className="text-gray-400 shrink-0">Keluhan:</span>
                       <span className="text-white font-medium text-right max-w-sm">{trackedOrder.issue}</span>
                     </div>
 
                     {trackedOrder.details && (
-                      <div className="flex justify-between items-start">
-                        <span className="text-gray-400">Catatan / Tipe:</span>
+                      <div className="flex justify-between items-start gap-3">
+                        <span className="text-gray-400 shrink-0">Catatan / Tipe:</span>
                         <span className="text-gray-300 text-right max-w-sm">{trackedOrder.details}</span>
                       </div>
                     )}
 
-                    {/* Spare Parts (if added by admin) */}
                     {trackedOrder.parts && trackedOrder.parts.length > 0 && (
                       <div className="pt-2 border-t border-gray-800">
                         <span className="text-gray-400 block mb-2 font-bold uppercase text-[10px]">
-                          Sparepart yang Diganti oleh Teknisi:
+                          Sparepart yang Diganti Teknisi:
                         </span>
                         <div className="space-y-1.5">
                           {trackedOrder.parts.map((p) => (
                             <div key={p.id} className="flex justify-between text-gray-300">
-                              <span>
-                                • {p.stock?.name || 'Komponen'} ({p.quantity}x)
-                              </span>
+                              <span>• {p.stock?.name || 'Komponen'} ({p.quantity}x)</span>
                               <span className="font-mono text-emerald-400">
                                 {formatRupiah((p.priceEach ?? p.stock?.price ?? 0) * (p.quantity || 1))}
                               </span>
@@ -1097,7 +1175,6 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                       </div>
                     )}
 
-                    {/* Total Amount */}
                     <div className="pt-2 border-t border-gray-800 flex justify-between items-center text-sm">
                       <span className="text-gray-400 font-semibold">Total Biaya Servis:</span>
                       <span className="text-emerald-400 font-bold font-mono">
@@ -1109,9 +1186,9 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                   </div>
 
                   {/* Action WA */}
-                  <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                  <div className="pt-2 flex flex-col sm:flex-row gap-2.5 sm:gap-3">
                     <a
-                      href={`https://wa.me/${STORE_WHATSAPP}?text=${encodeURIComponent(
+                      href={`https://wa.me/${storeWhatsApp}?text=${encodeURIComponent(
                         `Halo Bengkel Mouse! Saya mau menanyakan update servis dengan Order ID ${
                           trackedOrder.id.startsWith('BM-')
                             ? trackedOrder.id
@@ -1124,7 +1201,7 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                       rel="noopener noreferrer"
                       className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition"
                     >
-                      <MessageCircle size={16} />
+                      <MessageCircle size={15} />
                       <span>Chat Teknisi Mengenai Order Ini</span>
                     </a>
 
@@ -1133,299 +1210,443 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                         setActiveTab('form');
                         setCompletedBooking(null);
                       }}
-                      className="px-5 py-3 rounded-xl bg-[#171c28] hover:bg-[#1f2638] border border-[#273248] text-gray-300 text-xs font-semibold transition"
+                      className="px-4 py-3 rounded-xl bg-[#171c28] hover:bg-[#1f2638] border border-[#273248] text-gray-300 text-xs font-semibold transition"
                     >
                       Buat Reservasi Baru
                     </button>
                   </div>
                 </div>
               ) : (
-                /* Empty state when no order is searched yet */
-                <div className="bg-[#10141d] rounded-2xl border border-[#202738] p-10 text-center text-gray-400 space-y-3">
-                  <div className="w-12 h-12 mx-auto rounded-2xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-                    <Clock size={24} />
+                <div className="bg-[#10141d] rounded-2xl border border-[#202738] p-8 text-center text-gray-400 space-y-2.5">
+                  <div className="w-11 h-11 mx-auto rounded-2xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                    <Clock size={20} />
                   </div>
                   <h4 className="text-sm font-bold text-white">Masukkan Order ID Anda di atas</h4>
                   <p className="text-xs text-gray-500 max-w-sm mx-auto">
-                    Ketik Order ID (misal: BM-XXXXX) pada kolom pencarian untuk melihat setiap progres diagnosa, perbaikan, hingga pengujian mouse Anda.
+                    Ketik Order ID (misal: BM-XXXXX) pada kolom pencarian untuk melihat setiap progres pengerjaan servis mouse Anda.
                   </p>
                 </div>
               )}
             </div>
           </FadeContent>
         ) : (
-          /* 3. RESERVATION FORM & CHECKOUT LAYOUT */
+          /* 3. CLEAN & UNCLUTTERED RESERVATION FORM LAYOUT */
           <div>
-            {/* Header Hero Banner */}
-            <div className="mb-10 text-center md:text-left flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-[#1b212d] pb-8">
+            {/* Header Hero Banner - Clean & Responsive */}
+            <div className="mb-6 sm:mb-8 text-center sm:text-left flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6 border-b border-[#1b212d] pb-6 sm:pb-8">
               <div>
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-red-600/10 text-red-400 border border-red-500/20 mb-3">
+                <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold bg-red-600/10 text-red-400 border border-red-500/20 mb-2.5 sm:mb-3">
                   <Sparkles size={12} className="text-red-400" />
                   <span>Sistem Transaksi Reservasi Online</span>
                 </div>
-                <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight">
                   Reservasi Servis &amp; Modifikasi Mouse
                 </h1>
-                <p className="text-gray-400 text-sm mt-2 max-w-2xl leading-relaxed">
-                  Isi data mouse dan keluhan Anda di bawah. Tidak perlu bayar di awal — konsultasikan pilihan sparepart (switch, encoder, paracord) dan kesepakatan harga langsung dengan teknisi kami lewat WhatsApp!
+                <p className="text-gray-400 text-xs sm:text-sm mt-1.5 max-w-2xl leading-relaxed">
+                  Isi data mouse dan keluhan Anda di bawah. Tidak perlu bayar di awal — konsultasikan pilihan sparepart (switch, encoder, paracord) dan harga langsung dengan teknisi kami via WhatsApp.
                 </p>
               </div>
 
-              {/* Guarantees chips */}
-              <div className="flex flex-wrap md:flex-col gap-2 shrink-0">
-                <div className="flex items-center gap-2 text-xs text-gray-300 bg-[#121620] px-3 py-1.5 rounded-lg border border-[#21293a]">
-                  <ShieldCheck size={14} className="text-emerald-400" />
-                  <span>Garansi Servis s/d 30 Hari</span>
+              {/* Guarantees: 3-column row on mobile, stacked on desktop */}
+              <div className="grid grid-cols-3 md:flex md:flex-col gap-1.5 sm:gap-2 shrink-0 w-full md:w-auto">
+                <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-1 sm:gap-2 text-[10px] sm:text-xs text-gray-300 bg-[#121620] px-2 sm:px-3 py-1.5 rounded-lg border border-[#21293a] text-center sm:text-left">
+                  <ShieldCheck size={13} className="text-emerald-400 shrink-0" />
+                  <span>Garansi s/d 30 Hari</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-300 bg-[#121620] px-3 py-1.5 rounded-lg border border-[#21293a]">
-                  <Clock size={14} className="text-amber-400" />
-                  <span>Pengerjaan Cepat 1 - 3 Hari</span>
+                <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-1 sm:gap-2 text-[10px] sm:text-xs text-gray-300 bg-[#121620] px-2 sm:px-3 py-1.5 rounded-lg border border-[#21293a] text-center sm:text-left">
+                  <Clock size={13} className="text-amber-400 shrink-0" />
+                  <span>Selesai 1 - 3 Hari</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-300 bg-[#121620] px-3 py-1.5 rounded-lg border border-[#21293a]">
-                  <Zap size={14} className="text-blue-400" />
-                  <span>QC &amp; Sensor Testing Lengkap</span>
+                <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-1 sm:gap-2 text-[10px] sm:text-xs text-gray-300 bg-[#121620] px-2 sm:px-3 py-1.5 rounded-lg border border-[#21293a] text-center sm:text-left">
+                  <Zap size={13} className="text-blue-400 shrink-0" />
+                  <span>QC &amp; Test Lengkap</span>
                 </div>
               </div>
             </div>
 
             {/* Error Notification */}
             {error && (
-              <div className="mb-6 p-4 rounded-xl bg-red-950/60 border border-red-700/80 text-red-200 text-sm flex items-center gap-3">
-                <AlertCircle size={18} className="text-red-400 shrink-0" />
+              <div className="mb-6 p-3.5 sm:p-4 rounded-xl bg-red-950/60 border border-red-700/80 text-red-200 text-xs sm:text-sm flex items-center gap-2.5">
+                <AlertCircle size={16} className="text-red-400 shrink-0" />
                 <p>{error}</p>
               </div>
             )}
 
             {/* Two-Column Form Layout */}
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
               {/* Left Column: Form Details (7 cols) */}
-              <div className="lg:col-span-7 space-y-8">
-                {/* STEP 1: SPESIFIKASI MOUSE */}
-                <div className="bg-[#10141d] rounded-2xl border border-[#202738] p-6 shadow-xl">
-                  <div className="flex items-center gap-3 mb-5 pb-3 border-b border-gray-800">
-                    <div className="w-8 h-8 rounded-lg bg-red-600/20 text-red-400 font-bold flex items-center justify-center text-sm">
+              <div className="lg:col-span-7 space-y-6 sm:space-y-7">
+                {/* STEP 1: SPESIFIKASI MOUSE (CLEAN DROPDOWN) */}
+                <div className="bg-[#10141d] rounded-2xl border border-[#202738] p-4 sm:p-6 shadow-xl">
+                  <div className="flex items-center gap-3 mb-4 sm:mb-5 pb-3 border-b border-gray-800">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-red-600/20 text-red-400 font-bold flex items-center justify-center text-xs sm:text-sm">
                       1
                     </div>
                     <div>
-                      <h2 className="text-base font-bold text-white">Spesifikasi Mouse</h2>
-                      <p className="text-xs text-gray-400">Pilih merk dan tulis model mouse yang mau diservis.</p>
-                    </div>
-                  </div>
-
-                  {/* Brand Selector Pills */}
-                  <div className="mb-5">
-                    <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2.5">
-                      Brand / Merk Mouse
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {POPULAR_BRANDS.map((brand) => {
-                        const active = selectedBrand === brand;
-                        return (
-                          <button
-                            key={brand}
-                            type="button"
-                            onClick={() => setSelectedBrand(brand)}
-                            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition duration-150 ${
-                              active
-                                ? 'bg-red-600 text-white shadow-md shadow-red-900/40 border border-red-500'
-                                : 'bg-[#161b27] hover:bg-[#1e2536] text-gray-300 border border-[#252e42]'
-                            }`}
-                          >
-                            {brand}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Custom Brand Input (if Lainnya) */}
-                  {selectedBrand === 'Lainnya' && (
-                    <div className="mb-5">
-                      <label className="block text-xs text-gray-400 mb-1">Tuliskan Merk Mouse Anda:</label>
-                      <input
-                        type="text"
-                        value={customBrand}
-                        onChange={(e) => setCustomBrand(e.target.value)}
-                        placeholder="Contoh: Darmoshark, Zaopin, Attack Shark, dsb."
-                        className="w-full px-4 py-2.5 bg-[#171c28] border border-[#273248] rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition"
-                      />
-                    </div>
-                  )}
-
-                  {/* Model Input */}
-                  <div className="mb-5">
-                    <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
-                      Tipe / Model Mouse <span className="text-red-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={modelName}
-                      onChange={(e) => setModelName(e.target.value)}
-                      placeholder="Contoh: G Pro X Superlight, DeathAdder V3 Pro, EC2-C, dsb."
-                      className="w-full px-4 py-3 bg-[#171c28] border border-[#273248] rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition"
-                    />
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      <span className="text-[11px] text-gray-500">Saran cepat:</span>
-                      {['Superlight', 'Viper Mini', 'G304', 'EC2', 'DeathAdder', 'Atlantis'].map((sug) => (
-                        <button
-                          key={sug}
-                          type="button"
-                          onClick={() => setModelName((prev) => (prev ? `${prev} ${sug}` : sug))}
-                          className="text-[11px] px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition"
-                        >
-                          +{sug}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Connection Type */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">
-                      Konektivitas
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setMouseType('wireless')}
-                        className={`py-2.5 px-4 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition ${
-                          mouseType === 'wireless'
-                            ? 'bg-red-600/15 border-red-500 text-white'
-                            : 'bg-[#171c28] border-[#273248] text-gray-400 hover:text-white'
-                        }`}
-                      >
-                        <BatteryCharging size={16} />
-                        <span>Mouse Wireless</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setMouseType('wired')}
-                        className={`py-2.5 px-4 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition ${
-                          mouseType === 'wired'
-                            ? 'bg-red-600/15 border-red-500 text-white'
-                            : 'bg-[#171c28] border-[#273248] text-gray-400 hover:text-white'
-                        }`}
-                      >
-                        <Zap size={16} />
-                        <span>Mouse Kabel (Wired)</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* STEP 2: PILIH MASALAH & LAYANAN */}
-                <div className="bg-[#10141d] rounded-2xl border border-[#202738] p-6 shadow-xl">
-                  <div className="flex items-center gap-3 mb-5 pb-3 border-b border-gray-800">
-                    <div className="w-8 h-8 rounded-lg bg-red-600/20 text-red-400 font-bold flex items-center justify-center text-sm">
-                      2
-                    </div>
-                    <div>
-                      <h2 className="text-base font-bold text-white">Kerusakan &amp; Kebutuhan Servis</h2>
-                      <p className="text-xs text-gray-400">Bisa pilih lebih dari satu masalah yang dialami mouse.</p>
-                    </div>
-                  </div>
-
-                  {/* Issues grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-                    {SERVICE_ISSUES.map((issue) => {
-                      const isSelected = selectedIssues.includes(issue.id);
-                      return (
-                        <div
-                          key={issue.id}
-                          onClick={() => toggleIssue(issue.id)}
-                          className={`group relative cursor-pointer p-3.5 rounded-2xl border transition-all duration-200 flex items-start gap-3 select-none ${
-                            isSelected
-                              ? 'bg-gradient-to-br from-red-950/40 via-[#161219] to-[#10131d] border-red-500 ring-1 ring-red-500/40 shadow-lg shadow-red-950/30'
-                              : 'bg-[#141824]/90 hover:bg-[#181e2d] border-[#222b3e] hover:border-[#354361]'
-                          }`}
-                        >
-                          <div
-                            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                              isSelected
-                                ? 'bg-red-600 text-white shadow-md shadow-red-900/60'
-                                : 'bg-[#1b2132] border border-[#2b354e] text-gray-400 group-hover:text-white group-hover:bg-[#232b40]'
-                            }`}
-                          >
-                            {renderIssueIcon(issue.id, isSelected)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-1 mb-0.5">
-                              <span className="text-[9px] font-mono tracking-wider uppercase text-gray-400">
-                                {issue.category}
-                              </span>
-                              <div
-                                className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition ${
-                                  isSelected
-                                    ? 'bg-red-600 border-red-500 text-white'
-                                    : 'border-gray-600 bg-gray-800 group-hover:border-gray-500'
-                                }`}
-                              >
-                                {isSelected && <Check size={11} strokeWidth={3} />}
-                              </div>
-                            </div>
-                            <p className={`text-xs font-bold leading-tight ${isSelected ? 'text-white' : 'text-gray-100 group-hover:text-white'}`}>
-                              {issue.name}
-                            </p>
-                            <p className="text-[11px] text-gray-400 mt-1 line-clamp-2 leading-relaxed">
-                              {issue.desc}
-                            </p>
-                            <div className="mt-2">
-                              <span className="inline-block text-[9px] font-mono text-red-400/90 bg-red-950/50 px-2 py-0.5 rounded border border-red-900/40">
-                                {issue.tag}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Custom detail text */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
-                      Catatan Keluhan / Permintaan Khusus (Opsional)
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={details}
-                      onChange={(e) => setDetails(e.target.value)}
-                      placeholder="Contoh: Sering double click saat main game FPS. Mau tanya rekomendasi switch yang ringan dan awet (Huano Pink Dot / Kailh GM8.0)."
-                      className="w-full px-4 py-2.5 bg-[#171c28] border border-[#273248] rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition resize-none"
-                    />
-                  </div>
-                </div>
-
-                {/* STEP 3: INFORMASI KONTAK */}
-                <div className="bg-[#10141d] rounded-2xl border border-[#202738] p-6 shadow-xl">
-                  <div className="flex items-center gap-3 mb-5 pb-3 border-b border-gray-800">
-                    <div className="w-8 h-8 rounded-lg bg-red-600/20 text-red-400 font-bold flex items-center justify-center text-sm">
-                      3
-                    </div>
-                    <div>
-                      <h2 className="text-base font-bold text-white">Data Pengirim &amp; WhatsApp</h2>
-                      <p className="text-xs text-gray-400">
-                        {currentUser
-                          ? 'Data akun Anda terisi otomatis. Bisa diedit jika perlu.'
-                          : 'Diperlukan untuk konfirmasi estimasi harga dan penerimaan paket.'}
-                      </p>
+                      <h2 className="text-sm sm:text-base font-bold text-white">Spesifikasi Mouse</h2>
+                      <p className="text-[11px] sm:text-xs text-gray-400">Pilih merk, tipe/model, dan koneksi mouse yang mau diservis.</p>
                     </div>
                   </div>
 
                   <div className="space-y-4">
+                    {/* Brand Dropdown Search */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                        <span>Brand / Merk Mouse <span className="text-red-400">*</span></span>
+                        <span className="text-[10px] text-gray-400 font-normal">Dropdown Search</span>
+                      </label>
+                      <SearchableSelect
+                        value={selectedBrand}
+                        onChange={handleBrandChange}
+                        options={brandsList}
+                        placeholder="Pilih atau cari merk mouse..."
+                        searchPlaceholder="Ketik merk (Logitech, Razer, Zowie...)"
+                        allowCustom={true}
+                        customOptionPrefix="Gunakan merk"
+                      />
+                    </div>
+
+                    {/* Custom Brand Input (if Lainnya selected) */}
+                    {selectedBrand === 'Lainnya' && (
+                      <div className="animate-fadeIn">
+                        <label className="block text-xs text-gray-400 mb-1">Tuliskan Merk Mouse Anda:</label>
+                        <input
+                          type="text"
+                          value={customBrand}
+                          onChange={(e) => setCustomBrand(e.target.value)}
+                          placeholder="Contoh: Darmoshark, Zaopin, Attack Shark, WLmouse, dsb."
+                          className="w-full px-3.5 sm:px-4 py-2.5 bg-[#171c28] border border-[#273248] rounded-xl text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition"
+                        />
+                      </div>
+                    )}
+
+                    {/* Dynamic Model Dropdown Search per Brand */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                        <span>Tipe / Seri Model Mouse <span className="text-red-400">*</span></span>
+                        <span className="text-[10px] text-red-400 font-mono font-medium">
+                          {availableModels.length > 0 ? `${availableModels.length} Tipe ${selectedBrand}` : 'Ketik Manual'}
+                        </span>
+                      </label>
+                      <SearchableSelect
+                        value={modelName}
+                        onChange={(val) => setModelName(val)}
+                        options={availableModels}
+                        placeholder={`Pilih tipe mouse ${selectedBrand} atau ketik...`}
+                        searchPlaceholder={`Cari tipe ${selectedBrand} (contoh: ${
+                          availableModels.slice(0, 2).join(', ') || 'Superlight, Viper'
+                        })...`}
+                        allowCustom={true}
+                        customOptionPrefix="Gunakan tipe"
+                        emptyText={`Belum ada tipe tersimpan untuk ${selectedBrand}`}
+                      />
+                      {availableModels.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5 items-center">
+                          <span className="text-[10px] text-gray-400">Pilihan cepat:</span>
+                          {availableModels.slice(0, 5).map((m) => (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => setModelName(m)}
+                              className={`text-[10px] px-2 py-0.5 rounded-md border transition cursor-pointer ${
+                                modelName === m
+                                  ? 'bg-red-950/70 border-red-500 text-red-300 font-semibold'
+                                  : 'bg-[#151a26] hover:bg-[#1c2333] border-[#252f44] text-gray-300 hover:text-white'
+                              }`}
+                            >
+                              {m}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Koneksi Mouse Dropdown Search */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                        <span>Koneksi Mouse <span className="text-red-400">*</span></span>
+                        <span className="text-[10px] text-gray-400 font-normal">Dropdown Search</span>
+                      </label>
+                      <SearchableSelect
+                        value={connectionType}
+                        onChange={(val) => setConnectionType(val)}
+                        options={CONNECTION_OPTIONS}
+                        placeholder="Pilih koneksi mouse..."
+                        searchPlaceholder="Cari koneksi (wireless, kabel, bluetooth...)"
+                        allowCustom={true}
+                        customOptionPrefix="Gunakan koneksi"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* STEP 2: KERUSAKAN & LAYANAN (SLEEK MULTI-SELECT DROPDOWN) */}
+                <div className="bg-[#10141d] rounded-2xl border border-[#202738] p-4 sm:p-6 shadow-xl">
+                  <div className="flex items-center gap-3 mb-4 sm:mb-5 pb-3 border-b border-gray-800">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-red-600/20 text-red-400 font-bold flex items-center justify-center text-xs sm:text-sm">
+                      2
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <h2 className="text-sm sm:text-base font-bold text-white">Kerusakan &amp; Kebutuhan Servis</h2>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-red-950/80 text-red-300 border border-red-800/60 shrink-0">
+                          {selectedIssues.length} Dipilih
+                        </span>
+                      </div>
+                      <p className="text-[11px] sm:text-xs text-gray-400">Pilih satu atau beberapa keluhan yang dialami mouse.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* CUSTOM MULTI-SELECT DROPDOWN */}
+                    <div className="relative" ref={issueDropdownRef}>
+                      <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                        Pilih Layanan <span className="text-red-400">*</span>
+                      </label>
+
+                      {/* Dropdown Trigger Box */}
+                      <button
+                        type="button"
+                        onClick={() => setIsIssueDropdownOpen(!isIssueDropdownOpen)}
+                        className={`w-full px-3.5 sm:px-4 py-3 bg-[#171c28] border rounded-xl text-left transition flex items-center justify-between gap-2 ${
+                          isIssueDropdownOpen
+                            ? 'border-red-500 ring-2 ring-red-500/20'
+                            : 'border-[#273248] hover:border-[#384663]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Wrench size={16} className="text-red-400 shrink-0" />
+                          <span className="text-xs sm:text-sm text-gray-200 truncate font-medium">
+                            {selectedIssues.length === 0
+                              ? 'Klik untuk memilih layanan...'
+                              : `${selectedIssues.length} keluhan dipilih: ${selectedIssueNames.slice(0, 2).join(', ')}${
+                                  selectedIssues.length > 2 ? ` (+${selectedIssues.length - 2} lainnya)` : ''
+                                }`}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 text-gray-400">
+                          {isIssueDropdownOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </div>
+                      </button>
+
+                      {/* Dropdown Popover Panel */}
+                      {isIssueDropdownOpen && (
+                        <div className="absolute left-0 right-0 top-full mt-2 z-50 bg-[#121622] border border-[#273248] rounded-2xl shadow-2xl p-3 max-h-80 overflow-y-auto space-y-2">
+                          {/* Search inside dropdown */}
+                          <div className="relative mb-2">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                            <input
+                              type="text"
+                              value={issueSearch}
+                              onChange={(e) => setIssueSearch(e.target.value)}
+                              placeholder="Cari keluhan (switch, scroll, kabel, sensor)..."
+                              className="w-full pl-9 pr-7 py-2 bg-[#171d2b] border border-[#273248] rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500"
+                              autoFocus
+                            />
+                            {issueSearch && (
+                              <button
+                                type="button"
+                                onClick={() => setIssueSearch('')}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                              >
+                                <X size={12} />
+                              </button>
+                            )}
+                          </div>
+
+                          {/* List of issues */}
+                          <div className="space-y-1.5">
+                            {filteredIssues.map((issue) => {
+                              const isSelected = selectedIssues.includes(issue.id);
+                              return (
+                                <div
+                                  key={issue.id}
+                                  onClick={() => toggleIssue(issue.id)}
+                                  className={`p-2.5 rounded-xl cursor-pointer transition flex items-center justify-between gap-3 select-none ${
+                                    isSelected
+                                      ? 'bg-red-950/40 border border-red-500/50 text-white'
+                                      : 'bg-[#151a26] hover:bg-[#1b2232] border border-transparent text-gray-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div
+                                      className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                                        isSelected
+                                          ? 'bg-red-600 text-white'
+                                          : 'bg-[#1e2536] text-gray-400'
+                                      }`}
+                                    >
+                                      {renderIssueIcon(issue.id, isSelected)}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-bold leading-tight truncate">{issue.name}</p>
+                                      <p className="text-[10px] text-gray-400 truncate mt-0.5">
+                                        {issue.category} • {issue.tag}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  {/* Checkbox indicator */}
+                                  <div
+                                    className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition ${
+                                      isSelected
+                                        ? 'bg-red-600 border-red-500 text-white'
+                                        : 'border-gray-600 bg-gray-800'
+                                    }`}
+                                  >
+                                    {isSelected && <Check size={12} strokeWidth={3} />}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Dropdown Footer Actions */}
+                          <div className="pt-2 border-t border-gray-800 flex items-center justify-between text-xs">
+                            <span className="text-[11px] text-gray-400">
+                              {selectedIssues.length} dipilih
+                            </span>
+                            <div className="flex items-center gap-2">
+                              {selectedIssues.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedIssues([])}
+                                  className="text-[11px] text-gray-400 hover:text-red-400 transition px-2 py-1"
+                                >
+                                  Reset
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setIsIssueDropdownOpen(false)}
+                                className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg text-xs transition"
+                              >
+                                Selesai
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* SELECTED ISSUE PILLS (COMPACT & REMOVABLE) */}
+                    <div>
+                      {selectedIssues.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedIssues.map((id) => {
+                            const issue = SERVICE_ISSUES.find((s) => s.id === id);
+                            if (!issue) return null;
+                            return (
+                              <span
+                                key={id}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-950/60 border border-red-700/60 text-red-200 text-xs font-medium"
+                              >
+                                {renderIssueIcon(id, true)}
+                                <span className="truncate max-w-[200px]">{issue.name}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleIssue(id)}
+                                  className="hover:bg-red-800/80 p-0.5 rounded text-red-300 hover:text-white transition ml-0.5"
+                                  title="Hapus"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-white flex items-center gap-1.5 bg-blue-950/40 p-2 rounded-lg border border-blue-800/40">
+                          <AlertCircle size={13} className="shrink-0" />
+                          <span>Bisa pilih lebih dari satu.</span>
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Optional Expandable Details: For users who want to read full descriptions without cluttering the main flow */}
+                    <div>
+                    
+
+                      {showAllDetails && (
+                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5 animate-fadeIn">
+                          {SERVICE_ISSUES.map((issue) => {
+                            const isSelected = selectedIssues.includes(issue.id);
+                            return (
+                              <div
+                                key={issue.id}
+                                onClick={() => toggleIssue(issue.id)}
+                                className={`p-3 rounded-xl border text-xs cursor-pointer transition flex items-start gap-2.5 ${
+                                  isSelected
+                                    ? 'bg-red-950/30 border-red-500/70 text-white'
+                                    : 'bg-[#141824] hover:bg-[#181e2d] border-[#222b3e] text-gray-300'
+                                }`}
+                              >
+                                <div className="mt-0.5">{renderIssueIcon(issue.id, isSelected)}</div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center justify-between gap-1">
+                                    <p className="font-bold text-white text-xs">{issue.name}</p>
+                                    <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${
+                                      isSelected ? 'bg-red-600 border-red-500 text-white' : 'border-gray-600'
+                                    }`}>
+                                      {isSelected && <Check size={10} />}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">{issue.desc}</p>
+                                  <span className="inline-block mt-1 text-[9px] text-red-400 font-mono bg-red-950/60 px-1.5 py-0.2 rounded border border-red-900/50">
+                                    {issue.tag}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Custom Detail Notes */}
+                    <div className="pt-2">
+                      <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                        Keluhan Lain
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={details}
+                        onChange={(e) => setDetails(e.target.value)}
+                        placeholder="Contoh: Double click saat main Valorant"
+                        className="w-full px-3.5 sm:px-4 py-2 bg-[#171c28] border border-[#273248] rounded-xl text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition resize-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* STEP 3: INFORMASI KONTAK */}
+                <div className="bg-[#10141d] rounded-2xl border border-[#202738] p-4 sm:p-6 shadow-xl">
+                  <div className="flex items-center gap-3 mb-4 sm:mb-5 pb-3 border-b border-gray-800">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-red-600/20 text-red-400 font-bold flex items-center justify-center text-xs sm:text-sm">
+                      3
+                    </div>
+                    <div>
+                      <h2 className="text-sm sm:text-base font-bold text-white">Data Pengirim &amp; WhatsApp</h2>
+                      <p className="text-[11px] sm:text-xs text-gray-400">
+                        {currentUser ? 'Data akun terisi otomatis. Bisa diedit jika perlu.' : 'Diperlukan untuk konfirmasi estimasi harga via WhatsApp.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3.5">
                     <div>
                       <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
                         Nama Lengkap <span className="text-red-400">*</span>
                       </label>
                       <div className="relative">
-                        <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                        <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
                         <input
                           type="text"
                           required
                           value={name}
                           onChange={(e) => setName(e.target.value)}
                           placeholder="Nama Anda"
-                          className="w-full pl-10 pr-4 py-3 bg-[#171c28] border border-[#273248] rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition"
+                          className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-[#171c28] border border-[#273248] rounded-xl text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition"
                         />
                       </div>
                     </div>
@@ -1435,33 +1656,30 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                         Nomor WhatsApp Aktif <span className="text-red-400">*</span>
                       </label>
                       <div className="relative">
-                        <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                        <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
                         <input
                           type="tel"
                           required
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
-                          placeholder="Contoh: 081234567890 atau 6281234567890"
-                          className="w-full pl-10 pr-4 py-3 bg-[#171c28] border border-[#273248] rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition"
+                          placeholder="Contoh: 081234567890"
+                          className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-[#171c28] border border-[#273248] rounded-xl text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition"
                         />
                       </div>
-                      <p className="text-[11px] text-gray-500 mt-1">
-                        Format pesan WhatsApp akan langsung disesuaikan dengan nomor ini.
-                      </p>
                     </div>
 
                     <div>
                       <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
-                        Kota / Alamat Asal Pengiriman (Opsional)
+                       Alamat Pengirim
                       </label>
                       <div className="relative">
-                        <MapPin size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                        <MapPin size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
                         <input
                           type="text"
                           value={address}
                           onChange={(e) => setAddress(e.target.value)}
-                          placeholder="Contoh: Jakarta Timur, Bandung, Surabaya, dsb."
-                          className="w-full pl-10 pr-4 py-3 bg-[#171c28] border border-[#273248] rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition"
+                          placeholder="Contoh: Jakarta Barat, Surabaya, dsb."
+                          className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-[#171c28] border border-[#273248] rounded-xl text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition"
                         />
                       </div>
                     </div>
@@ -1469,65 +1687,64 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                 </div>
               </div>
 
-              {/* Right Column: Reservation / Checkout Summary (5 cols - Sticky) */}
-              <div className="lg:col-span-5 sticky top-24 space-y-6">
-                <div className="bg-gradient-to-b from-[#131824] to-[#0f131c] rounded-2xl border border-[#273145] p-6 shadow-2xl relative overflow-hidden">
-                  {/* Subtle red accent line on top */}
+              {/* Right Column: Reservation / Checkout Summary (5 cols - Sticky on Desktop) */}
+              <div className="lg:col-span-5 lg:sticky lg:top-24 space-y-4 sm:space-y-6">
+                <div className="bg-gradient-to-b from-[#131824] to-[#0f131c] rounded-2xl border border-[#273145] p-4 sm:p-6 shadow-2xl relative overflow-hidden">
                   <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-600 to-red-800" />
 
-                  <div className="flex items-center justify-between pb-4 border-b border-gray-800">
+                  <div className="flex items-center justify-between pb-3.5 border-b border-gray-800">
                     <div>
-                      <h3 className="text-base font-extrabold text-white">Ringkasan Reservasi</h3>
-                      <p className="text-[11px] text-gray-400">
-                        {currentUser ? 'Akun Terdaftar (Bisa Pantau via Web)' : 'Mode Tamu (Konsul via WhatsApp)'}
+                      <h3 className="text-sm sm:text-base font-extrabold text-white">Ringkasan Reservasi</h3>
+                      <p className="text-[10px] sm:text-[11px] text-gray-400">
+                        {currentUser ? 'Akun Terdaftar (Pantau via Web)' : 'Mode Tamu (Konsultasi via WA)'}
                       </p>
                     </div>
-                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-950/60 text-emerald-400 border border-emerald-800/60">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950/60 text-emerald-400 border border-emerald-800/60">
                       GRATIS BOOKING
                     </span>
                   </div>
 
                   {/* Summary Details */}
-                  <div className="py-4 space-y-3.5 text-xs border-b border-gray-800">
+                  <div className="py-3.5 space-y-3 text-xs border-b border-gray-800">
                     <div>
                       <span className="text-gray-400 block mb-1">Unit yang Diservis:</span>
-                      <div className="text-sm font-bold text-white flex items-center gap-2">
-                        <Mouse size={16} className="text-red-400 shrink-0" />
-                        <span>{fullMouseName}</span>
-                        <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-semibold">
-                          {mouseType}
+                      <div className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
+                        <Mouse size={15} className="text-red-400 shrink-0" />
+                        <span className="truncate">{fullMouseName}</span>
+                        <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-gray-800 text-gray-300 font-semibold shrink-0">
+                          {connectionType}
                         </span>
                       </div>
                     </div>
 
                     <div>
-                      <span className="text-gray-400 block mb-1.5">Layanan Dipilih ({selectedIssues.length}):</span>
-                      <div className="flex flex-wrap gap-1.5">
+                      <span className="text-gray-400 block mb-1">Layanan Dipilih ({selectedIssues.length}):</span>
+                      <div className="flex flex-wrap gap-1">
                         {selectedIssueNames.length > 0 ? (
                           selectedIssueNames.map((n) => (
                             <span
                               key={n}
-                              className="px-2 py-0.5 rounded-md bg-red-950/60 border border-red-800/50 text-red-300 font-medium text-[11px]"
+                              className="px-2 py-0.5 rounded-md bg-red-950/60 border border-red-800/50 text-red-300 font-medium text-[10px] sm:text-[11px]"
                             >
                               {n}
                             </span>
                           ))
                         ) : (
-                          <span className="text-gray-500 italic">Belum ada layanan dipilih</span>
+                          <span className="text-gray-500 italic text-[11px]">Belum ada layanan dipilih</span>
                         )}
                       </div>
                     </div>
 
                     {name && (
-                      <div className="pt-2 border-t border-gray-800/60 flex justify-between items-center text-xs">
+                      <div className="pt-1.5 border-t border-gray-800/60 flex justify-between items-center text-xs">
                         <span className="text-gray-400">Atas Nama:</span>
-                        <span className="text-white font-medium">{name}</span>
+                        <span className="text-white font-medium truncate max-w-[150px]">{name}</span>
                       </div>
                     )}
                   </div>
 
                   {/* Price breakdown */}
-                  <div className="py-4 space-y-2.5 border-b border-gray-800 text-xs">
+                  <div className="py-3 space-y-2 border-b border-gray-800 text-xs">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-400">Biaya Reservasi Website:</span>
                       <span className="text-emerald-400 font-bold">Rp 0 (Bebas Biaya)</span>
@@ -1543,19 +1760,19 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                   </div>
 
                   {/* How it works mini guide */}
-                  <div className="py-4 bg-[#171d2b]/60 rounded-xl px-4 my-4 border border-[#232c3f] space-y-2">
+                  <div className="py-3 bg-[#171d2b]/60 rounded-xl px-3 sm:px-4 my-3.5 border border-[#232c3f] space-y-1.5">
                     <p className="text-[11px] font-bold text-gray-200 flex items-center gap-1.5">
-                      <MessageCircle size={13} className="text-emerald-400" />
+                      <MessageCircle size={12} className="text-emerald-400" />
                       <span>Alur Transaksi &amp; Konsultasi Harga:</span>
                     </p>
-                    <ol className="text-[11px] text-gray-400 space-y-1 list-decimal list-inside leading-relaxed">
-                      <li>Klik tombol <strong>Buat Reservasi</strong> di bawah.</li>
-                      <li>Sistem mencatat data reservasi &amp; membuka WhatsApp otomatis.</li>
-                      <li>Diskusikan harga sparepart &amp; estimasi dengan teknisi.</li>
+                    <ol className="text-[10px] sm:text-[11px] text-gray-400 space-y-0.5 list-decimal list-inside leading-relaxed">
+                      <li>Klik <strong>Buat Reservasi</strong> di bawah.</li>
+                      <li>Sistem mencatat data &amp; membuka WhatsApp otomatis.</li>
+                      <li>Diskusikan harga sparepart &amp; kesepakatan dengan teknisi.</li>
                       <li>
                         {currentUser
-                          ? 'Pantau progres servis secara realtime di website ini.'
-                          : 'Kirim mouse ke workshop dan tanyakan status via nomor WA.'}
+                          ? 'Pantau progres servis secara realtime di web ini.'
+                          : 'Kirim mouse ke workshop & pantau via nomor WA.'}
                       </li>
                     </ol>
                   </div>
@@ -1564,42 +1781,25 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-red-600 via-red-500 to-amber-600 hover:from-red-500 hover:to-amber-500 disabled:opacity-50 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-red-900/30 hover:scale-[1.01] active:scale-[0.99] transition"
+                    className="w-full py-3.5 sm:py-4 px-4 sm:px-6 rounded-xl bg-gradient-to-r from-red-600 via-red-500 to-amber-600 hover:from-red-500 hover:to-amber-500 disabled:opacity-50 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-red-900/30 hover:scale-[1.01] active:scale-[0.99] transition cursor-pointer"
                   >
                     {submitting ? (
                       <>
-                        <RefreshCw size={18} className="animate-spin" />
+                        <RefreshCw size={16} className="animate-spin" />
                         <span>Menyiapkan Reservasi...</span>
                       </>
                     ) : (
                       <>
-                        <MessageCircle size={18} className="fill-white" />
-                        <span>Buat Reservasi &amp; Konsul Harga via WA</span>
-                        <ArrowRight size={16} />
+                        <MessageCircle size={16} className="fill-white" />
+                        <span>Buat Reservasi &amp; Konsul WA</span>
+                        <ArrowRight size={15} />
                       </>
                     )}
                   </button>
 
-                  <p className="text-center text-[10px] text-gray-500 mt-3">
-                    Dengan menekan tombol, Anda akan terhubung ke WhatsApp resmi Bengkel Mouse ({STORE_WHATSAPP_DISPLAY}).
+                  <p className="text-center text-[10px] text-gray-500 mt-2.5">
+                    Terhubung ke WhatsApp resmi Bengkel Mouse ({storeWhatsAppDisplay}).
                   </p>
-                </div>
-
-                {/* Mouse Tester promo box */}
-                <div className="bg-[#10141d] rounded-2xl border border-[#202738] p-5 flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
-                    <Zap size={20} className="text-amber-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-xs font-bold text-white">Belum yakin mouse Anda rusak?</h4>
-                    <p className="text-[11px] text-gray-400">Tes switch double click, scroll wheel, &amp; tombol online gratis.</p>
-                  </div>
-                  <Link
-                    href="/tester"
-                    className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold transition shrink-0"
-                  >
-                    Tes Sekarang
-                  </Link>
                 </div>
               </div>
             </form>
@@ -1610,48 +1810,48 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
       {/* GUEST NOTICE MODAL */}
       {showGuestNoticeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-[#121622] rounded-3xl border border-[#29354b] w-full max-w-md p-6 sm:p-7 relative shadow-2xl text-center space-y-4">
+          <div className="bg-[#121622] rounded-3xl border border-[#29354b] w-full max-w-md p-5 sm:p-7 relative shadow-2xl text-center space-y-4">
             <button
               onClick={() => setShowGuestNoticeModal(false)}
               className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition"
               aria-label="Tutup"
             >
-              <X size={18} />
+              <X size={16} />
             </button>
 
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
-              <Lock size={26} />
+            <div className="w-12 h-12 sm:w-14 sm:h-14 mx-auto rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <Lock size={22} />
             </div>
 
-            <h3 className="text-lg font-bold text-white">Pemantauan Status via Website</h3>
+            <h3 className="text-base sm:text-lg font-bold text-white">Pemantauan Status via Website</h3>
 
             <p className="text-xs text-gray-300 leading-relaxed">
-              Fitur pantau status perbaikan mouse langsung di website khusus untuk pengguna yang <strong>telah login</strong>.
+              Fitur pantau status perbaikan mouse langsung di web khusus untuk pengguna yang <strong>telah login</strong>.
             </p>
 
-            <div className="p-4 bg-[#181e2b] rounded-2xl border border-gray-700/60 text-left space-y-2 text-xs">
-              <p className="font-semibold text-gray-200">Bagi Pelanggan Mode Tamu (Tanpa Login):</p>
+            <div className="p-3.5 bg-[#181e2b] rounded-2xl border border-gray-700/60 text-left space-y-1.5 text-xs">
+              <p className="font-semibold text-gray-200">Untuk Pelanggan Mode Tamu (Tanpa Login):</p>
               <p className="text-gray-400 text-[11px] leading-relaxed">
-                Anda dapat langsung menanyakan progres perbaikan mouse kepada teknisi kami melalui <strong>WhatsApp</strong> dengan menyebutkan Nama atau Nomor WhatsApp yang didaftarkan.
+                Anda dapat menanyakan progres perbaikan mouse langsung ke teknisi via <strong>WhatsApp</strong> dengan menyebutkan Nama atau Nomor WA.
               </p>
             </div>
 
-            <div className="flex flex-col gap-2 pt-2">
+            <div className="flex flex-col gap-2 pt-1">
               <a
                 href={`https://wa.me/${STORE_WHATSAPP}?text=${encodeURIComponent(
                   'Halo Bengkel Mouse! Saya membuat reservasi sebagai tamu dan ingin menanyakan status pengerjaan mouse saya. Terima kasih.'
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition"
+                className="w-full py-2.5 sm:py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition"
               >
-                <MessageCircle size={16} />
+                <MessageCircle size={15} />
                 <span>Tanyakan Status via WhatsApp</span>
               </a>
 
               <Link
                 href="/login"
-                className="w-full py-3 px-4 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 font-bold text-xs flex items-center justify-center gap-2 transition"
+                className="w-full py-2.5 sm:py-3 px-4 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 font-bold text-xs flex items-center justify-center gap-2 transition"
               >
                 <User size={14} />
                 <span>Login untuk Pantau via Web</span>
@@ -1662,7 +1862,7 @@ Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Te
       )}
 
       {/* Footer */}
-      <footer className="mt-20 border-t border-[#1a202c] py-8 text-center text-xs text-gray-500 space-y-2">
+      <footer className="mt-14 sm:mt-20 border-t border-[#1a202c] py-6 sm:py-8 text-center text-xs text-gray-500 space-y-1.5 px-4">
         <p>
           &copy; {new Date().getFullYear()} <strong>Bengkel Mouse</strong> — Spesialis Servis &amp; Modifikasi Gaming Mouse Indonesia.
         </p>

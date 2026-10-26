@@ -16,6 +16,7 @@ export function buildWhatsAppConsultUrl({
   mouseName,
   issue,
   details,
+  storeWhatsapp,
 }: {
   customerName: string;
   customerPhone?: string;
@@ -24,6 +25,7 @@ export function buildWhatsAppConsultUrl({
   issue: string;
   details?: string;
   bookingId?: string;
+  storeWhatsapp?: string;
 }): string {
   const text = `Halo Bengkel Mouse!
 Saya sudah membuat Reservasi Servis di website:
@@ -36,7 +38,8 @@ Saya sudah membuat Reservasi Servis di website:
 *Catatan Tambahan:* ${details || '-'}
 
 Saya ingin konsultasi estimasi harga perbaikan dan prosedur pengiriman mouse. Terima kasih!`;
-  return `https://wa.me/${STORE_WHATSAPP}?text=${encodeURIComponent(text)}`;
+  const targetNumber = storeWhatsapp || STORE_WHATSAPP;
+  return `https://wa.me/${targetNumber}?text=${encodeURIComponent(text)}`;
 }
 
 export function buildAdminWhatsAppUrl({
@@ -444,6 +447,118 @@ export async function getReviews(): Promise<Review[]> {
 
 export async function deleteReview(id: string): Promise<void> {
   return request(`/reviews/${id}`, { method: 'DELETE' });
+}
+
+// ─── Store Settings & Catalog ───────────────────────────────────────────────
+
+export interface StoreSettings {
+  name: string;
+  phone: string;
+  whatsapp: string;
+  whatsappDisplay: string;
+  address: string;
+  receiverName: string;
+  brands: string[];
+  brandModels: Record<string, string[]>;
+}
+
+export async function getStoreSettings(): Promise<StoreSettings> {
+  try {
+    const res = await fetch('/api/settings', { cache: 'no-store' });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('Could not fetch store settings:', err);
+  }
+  return {
+    name: 'Bengkel Mouse',
+    phone: '083811691729',
+    whatsapp: STORE_WHATSAPP,
+    whatsappDisplay: STORE_WHATSAPP_DISPLAY,
+    address: STORE_ADDRESS,
+    receiverName: STORE_RECEIVER,
+    brands: [
+      'Logitech',
+      'Razer',
+      'Zowie',
+      'Pulsar',
+      'SteelSeries',
+      'Endgame Gear',
+      'Lamzu',
+      'Vaxee',
+      'Fantech',
+      'Rexus',
+      'VortexSeries',
+      'Lainnya',
+    ],
+    brandModels: {},
+  };
+}
+
+export async function updateStoreSettings(
+  settings: Partial<StoreSettings>
+): Promise<{ success: boolean; settings: StoreSettings }> {
+  const token = getToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch('/api/settings', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(settings),
+  });
+
+  if (!res.ok) {
+    throw new Error('Gagal memperbarui pengaturan toko');
+  }
+  return res.json();
+}
+
+export async function createAdminManualBooking(input: {
+  name: string;
+  phone: string;
+  email?: string;
+  address?: string;
+  mouseName: string;
+  issue: string;
+  details?: string;
+  totalAmount?: number;
+  status?: BookingStatus;
+}): Promise<Booking> {
+  const token = getToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const booking = await createPublicReservation({
+    name: input.name,
+    phone: input.phone,
+    email: input.email,
+    address: input.address,
+    mouseName: input.mouseName,
+    issue: input.issue,
+    details: input.details,
+  });
+
+  if (input.status && input.status !== 'PENDING' && booking.id) {
+    try {
+      await advanceBookingStatus(booking.id, input.status);
+      booking.status = input.status;
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  if (input.totalAmount && booking.id) {
+    try {
+      await setBookingAmount(booking.id, input.totalAmount);
+      booking.totalAmount = input.totalAmount;
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  return booking;
 }
 
 // ─── Utils ────────────────────────────────────────────────────────────────────

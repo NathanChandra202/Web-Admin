@@ -1,0 +1,102 @@
+{
+  "name": "Bengkel Mouse",
+  "phone": "083811691729",
+  "whatsapp": "6283811691729",
+  "whatsappDisplay": "+62 838-1169-1729",
+  "address": "Jl. H. Hasan No.26, RT.3/RW.10, Baru, Kec. Pasar Rebo, Jakarta Timur 13780",
+  "receiverName": "Bengkel Mouse",
+  "brands": [
+    "Logitech",
+    "Razer",
+    "Zowie",
+    "Pulsar",
+    "SteelSeries",
+    "Endgame Gear",
+    "Lamzu",
+    "Vaxee",
+    "Fantech",
+    "Rexus",
+    "VortexSeries",
+    "Lainnya"
+  ],
+  "brandModels": {
+    "Logitech": [
+      "G Pro X Superlight 2",
+      "G Pro X Superlight",
+      "G304",
+      "G502 X",
+      "G Pro Wireless",
+      "G703 Hero"
+    ],
+    "Razer": [
+      "Viper V3 Pro",
+      "DeathAdder V3 Pro",
+      "Viper V2 Pro",
+      "Viper Mini",
+      "Basilisk V3",
+      "Cobra Pro"
+    ],
+    "Zowie": [
+      "EC2-CW",
+      "EC1-CW",
+      "EC3-CW",
+      "FK2-C",
+      "ZA13-C",
+      "U2 Wireless"
+    ],
+    "Pulsar": [
+      "X2V2",
+      "X2 Mini",
+      "Xlite V3",
+      "X2H",
+      "X2A"
+    ],
+    "SteelSeries": [
+      "Aerox 3 Wireless",
+      "Aerox 5",
+      "Prime Wireless",
+      "Rival 3"
+    ],
+    "Endgame Gear": [
+      "OP1we",
+      "OP1 8k",
+      "XM2we",
+      "XM1r"
+    ],
+    "Lamzu": [
+      "Atlantis OG V2",
+      "Atlantis Mini",
+      "Maya 4K",
+      "Thorn",
+      "Paro"
+    ],
+    "Vaxee": [
+      "NP-01S Wireless",
+      "XE Wireless",
+      "Outset AX Wireless"
+    ],
+    "Fantech": [
+      "Helios II Pro",
+      "Aria XD7",
+      "Thor II"
+    ],
+    "Rexus": [
+      "Dagger FX1",
+      "Daxa Air III",
+      "Daxa Air IV",
+      "Gladius"
+    ],
+    "VortexSeries": [
+      "Ino Pro",
+      "GT-8",
+      "Oni R1",
+      "Zircon X"
+    ],
+    "Lainnya": [
+      "Darmoshark M3",
+      "Zaopin Z1 Pro",
+      "Attack Shark X3",
+      "Scyrox V8"
+    ]
+  }
+}

@@ -41,7 +41,7 @@ export default function LoginPage() {
       if (isAdmin()) {
         router.replace('/dashboard');
       } else {
-        router.replace('/tester');
+        router.replace('/reservasi');
       }
       return;
     }
@@ -63,7 +63,7 @@ export default function LoginPage() {
       if (user.role === 'ADMIN') {
         router.push('/dashboard');
       } else {
-        router.push('/tester');
+        router.push('/reservasi');
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login gagal. Periksa kembali email dan password Anda.');
@@ -101,7 +101,7 @@ export default function LoginPage() {
 
       setSuccess('Pendaftaran berhasil! Akun Anda tersimpan di database.');
       setTimeout(() => {
-        router.push('/tester');
+        router.push('/reservasi');
       }, 700);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Pendaftaran gagal. Email mungkin sudah terdaftar.');
@@ -164,7 +164,7 @@ export default function LoginPage() {
         if (user.role === 'ADMIN') {
           router.push('/dashboard');
         } else {
-          router.push('/tester');
+          router.push('/reservasi');
         }
       }
     } catch (err: unknown) {
@@ -525,7 +525,7 @@ export default function LoginPage() {
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
-                    Kota / Alamat (Opsional)
+                    Alamat Pengirim
                   </label>
                   <input
                     type="text"
