@@ -35,6 +35,22 @@ const DoubleClickTest: React.FC<DoubleClickTestProps> = ({ className = '' }) => 
     setThreshold(val);
   };
 
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Disable scrolling when cursor is inside the card (same as ButtonTest)
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (containerRef.current?.contains(e.target as Node)) {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      window.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
   // Cleanup timer on unmount
   useEffect(() => {
     return () => {
@@ -135,7 +151,10 @@ const DoubleClickTest: React.FC<DoubleClickTestProps> = ({ className = '' }) => 
   const lastIsError = logs.length > 0 && logs[0].isError;
 
   return (
-    <div className={`bg-[#12151c] border border-white/5 rounded-2xl p-6 shadow-2xl flex flex-col h-full hover:border-white/10 transition-colors relative ${className}`}>
+    <div
+      ref={containerRef}
+      className={`bg-[#12151c] border border-white/5 rounded-2xl p-6 shadow-2xl flex flex-col h-full hover:border-white/10 transition-colors relative ${className}`}
+    >
       {/* Card Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
